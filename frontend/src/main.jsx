@@ -16,10 +16,28 @@ async function getJson(path) {
   return payload;
 }
 
+const HIDDEN_COLOR_COLUMNS = new Set(["sample"]);
+const HIDDEN_CLUSTER_COLUMNS = new Set(["sample", "renamed_samples"]);
+const COLUMN_LABELS = {
+  renamed_samples: "samples",
+  leiden: "cell clusters",
+};
+
+function displayColumnName(name) {
+  return COLUMN_LABELS[name] ?? name;
+}
+
+function visibleColorColumns(columns) {
+  return columns.filter((column) => column.kind === "categorical" && !HIDDEN_COLOR_COLUMNS.has(column.name));
+}
+
+function visibleClusterColumns(columns) {
+  return columns.filter((column) => column.kind === "categorical" && !HIDDEN_CLUSTER_COLUMNS.has(column.name));
+}
+
 function chooseDefaultColumn(columns) {
-  const names = columns.map((column) => column.name);
+  const names = visibleColorColumns(columns).map((column) => column.name);
   const preferred = [
-    "sample",
     "renamed_samples",
     "cell_type",
     "celltype",
@@ -28,7 +46,6 @@ function chooseDefaultColumn(columns) {
     "seurat_clusters",
     "cluster",
     "annotation",
-    "sample",
   ];
   return preferred.find((name) => names.includes(name)) ?? names[0] ?? "";
 }
@@ -77,6 +94,42 @@ function parseGenes(value) {
     .filter(Boolean);
 }
 
+function clusterLabelTraces(clusterLabels) {
+  const x = clusterLabels.map((label) => label.x);
+  const y = clusterLabels.map((label) => label.y);
+  const labels = clusterLabels.map((label) => label.cluster);
+  return [
+    {
+      type: "scatter",
+      name: "Cluster label outline",
+      showlegend: false,
+      mode: "text",
+      x,
+      y,
+      text: labels,
+      hoverinfo: "skip",
+      textposition: "middle center",
+      textfont: { color: "#ffffff", size: 23, family: "Arial Black, Inter, sans-serif" },
+    },
+    {
+      type: "scatter",
+      name: "Cluster labels",
+      showlegend: false,
+      mode: "text",
+      x,
+      y,
+      text: labels,
+      hoverinfo: "skip",
+      textposition: "middle center",
+      textfont: { color: "#dc2626", size: 16, family: "Arial Black, Inter, sans-serif" },
+    },
+  ];
+}
+
+function dotSizeFromPercent(value) {
+  return Math.min(10, Math.max(2, Math.sqrt(value) * 1.05));
+}
+
 function App() {
   const plotRef = useRef(null);
   const dotplotRef = useRef(null);
@@ -108,7 +161,8 @@ function App() {
         const studyPayload = await getJson("/api/study");
         const query = new URLSearchParams(window.location.search);
         const columns = studyPayload.metadata_columns ?? [];
-        const names = columns.map((column) => column.name);
+        const colorColumnNames = visibleColorColumns(columns).map((column) => column.name);
+        const clusterColumnNames = visibleClusterColumns(columns).map((column) => column.name);
         const defaultColumn = chooseDefaultColumn(studyPayload.metadata_columns ?? []);
         const urlAnnotation = query.get("annotation");
         const urlClusterColumn = query.get("cluster");
@@ -116,12 +170,14 @@ function App() {
         const urlTab = query.get("tab");
 
         setStudy(studyPayload);
-        const selectedAnnotation = urlAnnotation && names.includes(urlAnnotation) ? urlAnnotation : defaultColumn;
+        const selectedAnnotation = urlAnnotation && colorColumnNames.includes(urlAnnotation) ? urlAnnotation : defaultColumn;
         setColorBy(selectedAnnotation);
-        if (urlClusterColumn && names.includes(urlClusterColumn)) {
+        if (urlClusterColumn && clusterColumnNames.includes(urlClusterColumn)) {
           setClusterColumn(urlClusterColumn);
-        } else if (names.includes("leiden")) {
+        } else if (clusterColumnNames.includes("leiden")) {
           setClusterColumn("leiden");
+        } else if (clusterColumnNames.length) {
+          setClusterColumn(clusterColumnNames[0]);
         }
         const urlFilterValues = splitParam([
           ...query.getAll("annotationValue"),
@@ -239,7 +295,8 @@ function App() {
     }
   }
 
-  const categoricalColumns = (study?.metadata_columns ?? []).filter((column) => column.kind === "categorical");
+  const colorColumns = visibleColorColumns(study?.metadata_columns ?? []);
+  const clusterColumns = visibleClusterColumns(study?.metadata_columns ?? []);
   const visibleCellCount = metrics?.visible_cells ?? cells.length;
   const annotationFilterItems = filterOptions.map((item) => ({ ...item, value: String(item.value) }));
   const colorLabels = useMemo(
@@ -269,7 +326,7 @@ function App() {
     const x = cells.map((cell) => cell.x);
     const y = cells.map((cell) => cell.y);
     const text = cells.map((cell) => {
-      const annotation = colorBy ? `<br>${colorBy}: ${cell[colorBy] || "Unannotated"}` : "";
+      const annotation = colorBy ? `<br>${displayColumnName(colorBy)}: ${cell[colorBy] || "Unannotated"}` : "";
       return `${cell.cell_id}${annotation}`;
     });
 
@@ -296,17 +353,7 @@ function App() {
       ];
 
       if (showClusterLabels && clusterLabels.length > 0) {
-        traces.push({
-          type: "scatter",
-          name: "Cluster labels",
-          showlegend: false,
-          mode: "text",
-          x: clusterLabels.map((label) => label.x),
-          y: clusterLabels.map((label) => label.y),
-          text: clusterLabels.map((label) => label.cluster),
-          hoverinfo: "skip",
-          textfont: { color: "#111827", size: 14, family: "Inter, sans-serif" },
-        });
+        traces.push(...clusterLabelTraces(clusterLabels));
       }
 
       return traces;
@@ -332,17 +379,7 @@ function App() {
     ];
 
     if (showClusterLabels && clusterLabels.length > 0) {
-      traces.push({
-        type: "scatter",
-        name: "Cluster labels",
-        showlegend: false,
-        mode: "text",
-        x: clusterLabels.map((label) => label.x),
-        y: clusterLabels.map((label) => label.y),
-        text: clusterLabels.map((label) => label.cluster),
-        hoverinfo: "skip",
-        textfont: { color: "#111827", size: 14, family: "Inter, sans-serif" },
-      });
+      traces.push(...clusterLabelTraces(clusterLabels));
     }
 
     return traces;
@@ -390,34 +427,59 @@ function App() {
 
   useEffect(() => {
     if (!dotplotRef.current) return;
-    if (!dotplotResult) {
+    if (!matrixResult) {
       Plotly.purge(dotplotRef.current);
       return;
     }
 
-    const points = dotplotResult.points ?? [];
+    const rows = matrixResult.rows ?? [];
+    const maxMean = Math.max(...rows.map((row) => row.mean_expression), 0);
+    const expressionScale = rows.map((row) => (maxMean > 0 ? row.mean_expression / maxMean : 0));
+    const fractionLegend = [20, 40, 60, 80, 100];
     const data = [
       {
         type: "scatter",
         mode: "markers",
-        x: points.map((point) => point.group),
-        y: points.map(() => dotplotResult.gene),
-        text: points.map(
-          (point) =>
-            `${clusterColumn}: ${point.group}<br>Mean: ${point.mean_expression.toFixed(3)}<br>Expressing: ${point.pct_expressing.toFixed(1)}%<br>Cells: ${point.count.toLocaleString()}`,
+        showlegend: false,
+        x: rows.map((row) => row.gene),
+        y: rows.map((row) => row.group),
+        text: rows.map(
+          (row, index) =>
+            `${row.gene}<br>${displayColumnName(clusterColumn)}: ${row.group}<br>Mean expression: ${row.mean_expression.toFixed(3)}<br>Scaled expression: ${expressionScale[index].toFixed(3)}<br>Fraction expressing: ${row.pct_expressing.toFixed(1)}%<br>Cells: ${row.count.toLocaleString()}`,
         ),
         hoverinfo: "text",
         marker: {
-          color: points.map((point) => point.mean_expression),
-          colorscale: "Viridis",
+          color: expressionScale,
+          colorscale: [
+            [0, "#fff7ec"],
+            [0.35, "#fcbba1"],
+            [0.7, "#fb4a2a"],
+            [1, "#7f0000"],
+          ],
+          cmin: 0,
+          cmax: 1,
           showscale: true,
-          colorbar: { title: "Mean" },
-          size: points.map((point) => Math.max(6, Math.sqrt(point.pct_expressing) * 3.2)),
+          colorbar: { title: "Mean expression<br>in group", thickness: 12 },
+          size: rows.map((row) => dotSizeFromPercent(row.pct_expressing)),
           sizemode: "diameter",
-          opacity: 0.9,
-          line: { color: "#334155", width: 0.4 },
+          opacity: 0.95,
+          line: { color: "#9ca3af", width: 0.5 },
         },
       },
+      ...fractionLegend.map((value) => ({
+        type: "scatter",
+        mode: "markers",
+        x: [null],
+        y: [null],
+        name: `${value}`,
+        hoverinfo: "skip",
+        showlegend: true,
+        marker: {
+          color: "#6b7280",
+          size: dotSizeFromPercent(value),
+          sizemode: "diameter",
+        },
+      })),
     ];
 
     Plotly.react(
@@ -425,15 +487,44 @@ function App() {
       data,
       {
         autosize: true,
-        margin: { l: 90, r: 20, t: 8, b: 46 },
+        margin: { l: 78, r: 170, t: 18, b: 118 },
         paper_bgcolor: "#ffffff",
         plot_bgcolor: "#ffffff",
-        xaxis: { title: clusterColumn, type: "category", automargin: true },
-        yaxis: { automargin: true },
+        xaxis: {
+          title: "Selected genes",
+          type: "category",
+          categoryarray: matrixResult.genes,
+          automargin: true,
+          tickangle: -90,
+          showgrid: true,
+          gridcolor: "#eef2f6",
+          zeroline: false,
+        },
+        yaxis: {
+          title: displayColumnName(clusterColumn),
+          type: "category",
+          categoryarray: matrixResult.groups,
+          autorange: "reversed",
+          automargin: true,
+          showgrid: true,
+          gridcolor: "#eef2f6",
+          zeroline: false,
+        },
+        legend: {
+          title: { text: "Fraction of cells<br>in group (%)" },
+          x: 1.04,
+          y: 0.24,
+          xanchor: "left",
+          yanchor: "middle",
+          bgcolor: "rgba(255,255,255,0)",
+          borderwidth: 0,
+          font: { size: 11 },
+          traceorder: "normal",
+        },
       },
       { responsive: true, displaylogo: false },
     );
-  }, [dotplotResult, clusterColumn]);
+  }, [matrixResult, clusterColumn]);
 
   useEffect(() => {
     if (!heatmapRef.current) return;
@@ -451,8 +542,8 @@ function App() {
     const text = matrixResult.genes.map((gene) =>
       matrixResult.groups.map((group) => {
         const row = matrixResult.rows.find((item) => item.gene === gene && item.group === group);
-        if (!row) return `${gene}<br>${clusterColumn}: ${group}`;
-        return `${gene}<br>${clusterColumn}: ${group}<br>Mean: ${row.mean_expression.toFixed(3)}<br>Expressing: ${row.pct_expressing.toFixed(1)}%<br>Cells: ${row.count.toLocaleString()}`;
+        if (!row) return `${gene}<br>${displayColumnName(clusterColumn)}: ${group}`;
+        return `${gene}<br>${displayColumnName(clusterColumn)}: ${group}<br>Mean: ${row.mean_expression.toFixed(3)}<br>Expressing: ${row.pct_expressing.toFixed(1)}%<br>Cells: ${row.count.toLocaleString()}`;
       }),
     );
 
@@ -586,20 +677,20 @@ function App() {
               setSelectedAnnotationValues([]);
             }}
           >
-            {categoricalColumns.map((column) => (
+            {colorColumns.map((column) => (
               <option key={column.name} value={column.name}>
-                {column.name}
+                {displayColumnName(column.name)}
               </option>
             ))}
           </select>
         </section>
 
         <section className="control-group">
-          <label htmlFor="clusterBy">Cluster numbering</label>
+          <label htmlFor="clusterBy">Cluster labels</label>
           <select id="clusterBy" value={clusterColumn} onChange={(event) => setClusterColumn(event.target.value)}>
-            {categoricalColumns.map((column) => (
+            {clusterColumns.map((column) => (
               <option key={column.name} value={column.name}>
-                {column.name}
+                {displayColumnName(column.name)}
               </option>
             ))}
           </select>
@@ -632,7 +723,7 @@ function App() {
 
         <section className="control-group">
           <div className="filter-heading">
-            <label>{colorBy || "Annotation"} values</label>
+            <label>{colorBy ? displayColumnName(colorBy) : "Annotation"} values</label>
             <div>
               <button type="button" onClick={() => setSelectedAnnotationValues([])} title="Show all values">
                 <Eye size={15} />
@@ -730,11 +821,11 @@ function App() {
           </div>
           <div>
             <span>Annotation</span>
-            <strong>{colorBy || "none"}</strong>
+            <strong>{colorBy ? displayColumnName(colorBy) : "none"}</strong>
           </div>
           <div>
             <span>Cluster</span>
-            <strong>{clusterColumn}</strong>
+            <strong>{displayColumnName(clusterColumn)}</strong>
           </div>
           <div>
             <span>Subsample</span>
@@ -763,19 +854,19 @@ function App() {
         <div className={activeTab === "dotplot" ? "dotplot-panel" : "dotplot-panel hidden-panel"}>
           <div className="plot-toolbar compact">
             <div>
-              <strong>{dotplotResult ? `${dotplotResult.gene} dot plot` : "Dot plot"}</strong>
-              <span>Mean expression and percent expressing by {clusterColumn}</span>
+              <strong>{matrixResult ? "Gene dot plot" : "Dot plot"}</strong>
+              <span>Selected genes across {displayColumnName(clusterColumn)}; color is expression, size is fraction expressing</span>
             </div>
           </div>
           <div ref={dotplotRef} className="dotplot">
-            {!dotplotResult && <span className="empty-state">Search a gene to show the dot plot.</span>}
+            {!matrixResult && <span className="empty-state">Search one or more genes to show the dot plot.</span>}
           </div>
         </div>
         <div className={activeTab === "heatmap" ? "dotplot-panel" : "dotplot-panel hidden-panel"}>
           <div className="plot-toolbar compact">
             <div>
               <strong>{matrixResult ? "Expression heat map" : "Heat map"}</strong>
-              <span>Mean expression by {clusterColumn}, inspired by Morpheus matrix views</span>
+              <span>Mean expression by {displayColumnName(clusterColumn)}, inspired by Morpheus matrix views</span>
             </div>
           </div>
           <div ref={heatmapRef} className="dotplot">
@@ -787,7 +878,7 @@ function App() {
         <div className="legend-card">
           <div>
             <p className="eyebrow">Legend</p>
-            <h2>{geneResult ? geneResult.gene : colorBy}</h2>
+            <h2>{geneResult ? geneResult.gene : displayColumnName(colorBy)}</h2>
           </div>
           {!geneResult ? (
             <div className="legend-list">

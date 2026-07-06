@@ -553,7 +553,7 @@ select {
 .plot {
   width: 100%;
   height: 100%;
-  min-height: 420px;
+  min-height: 620px;
   border: 1px solid #d7e0ea;
   border-radius: 8px;
   overflow: hidden;
@@ -562,7 +562,7 @@ select {
 
 .dotplot-panel {
   display: grid;
-  grid-template-rows: auto minmax(420px, 1fr);
+  grid-template-rows: auto minmax(620px, 1fr);
   gap: 8px;
   min-width: 0;
 }
@@ -570,7 +570,7 @@ select {
 .dotplot {
   position: relative;
   height: 100%;
-  min-height: 420px;
+  min-height: 620px;
   border: 1px solid #d7e0ea;
   border-radius: 8px;
   overflow: hidden;
@@ -589,32 +589,38 @@ select {
 
 .legend-card {
   display: grid;
-  gap: 14px;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  height: calc(100vh - 178px);
   max-height: calc(100vh - 178px);
   overflow: hidden;
   border: 1px solid #d7e0ea;
   border-radius: 8px;
-  padding: 16px;
+  padding: 14px;
   background: #ffffff;
 }
 
 .legend-list {
   display: grid;
-  gap: 7px;
+  align-content: start;
+  grid-auto-rows: min-content;
+  gap: 4px;
+  min-height: 0;
   overflow-y: auto;
+  padding-right: 4px;
 }
 
 .legend-row {
   display: grid;
-  grid-template-columns: 12px minmax(0, 1fr) auto;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  min-height: 24px;
+  gap: 7px;
+  min-height: 22px;
 }
 
 .legend-row span {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
 }
 
@@ -701,7 +707,7 @@ select {
 
   .plot {
     height: 68vh;
-    min-height: 420px;
+    min-height: 620px;
   }
 
   .dotplot-panel {
@@ -713,6 +719,7 @@ select {
   }
 
   .legend-card {
+    height: 320px;
     max-height: 320px;
   }
 
