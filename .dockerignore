@@ -1,0 +1,29 @@
+# Git and local editor state
+.git
+.gitignore
+.DS_Store
+.vscode
+.idea
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.env
+
+# Frontend dependencies/build output
+frontend/node_modules/
+frontend/dist/
+
+# Large single-cell datasets and generated processed data
+*.h5ad
+*.h5
+*.loom
+*.zarr/
+data/processed/*.json
+data/processed/*.parquet
+data/processed/*.csv
+
+# Docker/deployment local state
+.env.local

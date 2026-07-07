@@ -126,6 +126,37 @@ http://192.168.1.24:5173
 
 Keep both terminal windows running while colleagues use the site. If macOS asks whether to allow incoming network connections for Python or Node, choose allow.
 
+
+## Production Deployment With Docker
+
+This project includes a Docker Compose setup for production deployment on Linux servers such as RHEL 8.10. The production layout is:
+
+```text
+frontend container: Nginx serves the built React app and proxies /api
+backend container: FastAPI serves data and expression endpoints
+host-mounted data: large .h5ad file plus generated data/processed files
+```
+
+The large `.h5ad` file is intentionally not copied into Docker images. Keep it on the server and mount it into the backend container.
+
+Quick start on the server:
+
+```bash
+cp .env.example .env
+mkdir -p data/processed
+docker compose build
+docker compose --profile tools run --rm preprocess
+docker compose up -d
+```
+
+By default, the site is published on:
+
+```text
+http://SERVER_IP:8080
+```
+
+Set `PORT=80` in `.env` if you want to serve on normal HTTP port 80. See [deploy/README-rhel.md](deploy/README-rhel.md) for RHEL 8.10 prerequisites, firewall commands, SELinux notes, and update instructions.
+
 ## API
 
 Useful endpoints:

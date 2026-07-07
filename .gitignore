@@ -3,6 +3,7 @@ __pycache__/
 node_modules/
 dist/
 .DS_Store
+.env
 
 # Large single-cell source files should usually stay out of git.
 *.h5ad
