@@ -1,13 +1,19 @@
 FROM python:3.11-slim-bookworm
 
-ENV PYTHONDONTWRITEBYTECODE=1     PYTHONUNBUFFERED=1     PIP_NO_CACHE_DIR=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=10 \
+    PIP_INDEX_URL=https://pypi.org/simple
 
 WORKDIR /app
 
 RUN groupadd --system app && useradd --system --gid app --home-dir /app app
 
 COPY backend/requirements.txt /tmp/requirements.txt
-RUN pip install --upgrade pip     && pip install -r /tmp/requirements.txt
+RUN pip install --upgrade pip \
+    && pip install --retries 10 --timeout 120 -r /tmp/requirements.txt
 
 COPY backend ./backend
 RUN mkdir -p /app/data/processed     && chown -R app:app /app

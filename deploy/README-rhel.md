@@ -36,6 +36,68 @@ docker compose version
 
 If the server uses SELinux enforcing mode, keep the `:Z` labels in `compose.yaml`; they let Docker relabel mounted project data for container access.
 
+
+## Troubleshooting Docker Network/DNS During Build
+
+If `docker compose build` gets stuck or prints errors like:
+
+```text
+Temporary failure in name resolution
+Failed to establish a new connection
+/simple/pip/
+/simple/fastapi/
+```
+
+then the build container cannot resolve or reach package indexes. This is a Docker/server DNS or proxy issue, not a Python dependency issue.
+
+First test DNS from a disposable container:
+
+```bash
+docker run --rm busybox nslookup pypi.org
+docker run --rm busybox wget -S --spider https://pypi.org/simple/pip/
+```
+
+If DNS fails, configure Docker daemon DNS on RHEL:
+
+```bash
+sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json >/dev/null <<'EOF'
+{
+  "dns": ["8.8.8.8", "1.1.1.1"]
+}
+EOF
+sudo systemctl restart docker
+```
+
+Then retry:
+
+```bash
+docker compose build --progress=plain backend
+```
+
+If the server is behind an institutional proxy, configure Docker's systemd proxy instead. Replace the proxy URL with your local proxy address:
+
+```bash
+sudo mkdir -p /etc/systemd/system/docker.service.d
+sudo tee /etc/systemd/system/docker.service.d/http-proxy.conf >/dev/null <<'EOF'
+[Service]
+Environment="HTTP_PROXY=http://proxy.example.edu:8080"
+Environment="HTTPS_PROXY=http://proxy.example.edu:8080"
+Environment="NO_PROXY=localhost,127.0.0.1"
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
+Then retry the build.
+
+If DNS works on the host but still fails during `docker compose build`, this project sets `build.network: host` in `compose.yaml` so build steps use the host network stack on Linux. Make sure the server has the latest `compose.yaml`, then rebuild without cache:
+
+```bash
+git pull
+docker compose build --no-cache --progress=plain backend
+```
+
 ## Deploy the Project
 
 Clone the project:

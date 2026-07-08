@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
+      network: host
     image: zebrafish-singlecell-portal-backend:latest
     restart: unless-stopped
     environment:
@@ -24,6 +25,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      network: host
       args:
         VITE_API_BASE: ""
     image: zebrafish-singlecell-portal-frontend:latest
@@ -39,6 +41,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
+      network: host
     profiles:
       - tools
     user: "0:0"
