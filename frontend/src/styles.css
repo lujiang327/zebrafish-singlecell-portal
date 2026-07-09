@@ -811,6 +811,45 @@ select {
   line-height: 1.45;
 }
 
+.dot-size-legend {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #d8e0ea;
+  border-radius: 7px;
+  padding: 10px;
+  background: #f8fafc;
+}
+
+.dot-size-legend > strong {
+  color: #334155;
+  font-size: 12px;
+}
+
+.dot-size-legend > div {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: end;
+  gap: 6px;
+}
+
+.dot-size-legend span {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.dot-size-legend i {
+  display: block;
+  border-radius: 50%;
+  background: #6b7280;
+}
+
+.dot-size-legend label {
+  color: #64748b;
+  font-size: 10px;
+}
+
 .legend-gene-list {
   display: flex;
   flex-wrap: wrap;

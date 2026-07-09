@@ -326,3 +326,78 @@ def expression_matrix(
         "groups": [str(group) for group in ordered_groups],
         "rows": rows,
     }
+
+
+@app.get("/api/violin")
+def violin_expression(
+    genes: str,
+    group_by: str = "leiden",
+    sample: list[str] = Query(default=[]),
+    cluster: list[str] = Query(default=[]),
+    filter_value: list[str] = Query(default=[]),
+    filter_column: str | None = None,
+    sample_column: str = "sample",
+    cluster_column: str = "leiden",
+    max_points_per_group: int = Query(default=400, ge=50, le=1200),
+) -> dict[str, Any]:
+    requested = [gene.strip() for gene in genes.split(",") if gene.strip()]
+    if not requested:
+        raise HTTPException(status_code=400, detail="At least one gene is required.")
+
+    adata = _adata()
+    var_names = pd.Index(adata.var_names.astype(str))
+    lower_lookup = {name.lower(): i for i, name in enumerate(var_names)}
+    gene_indices: list[tuple[str, int]] = []
+    missing: list[str] = []
+    for gene in requested:
+        idx = lower_lookup.get(gene.lower())
+        if idx is None:
+            missing.append(gene)
+        else:
+            gene_indices.append((str(var_names[idx]), int(idx)))
+
+    if not gene_indices:
+        raise HTTPException(status_code=404, detail=f"No requested genes found: {', '.join(missing)}")
+
+    df = _filtered_cells(sample, cluster, sample_column, cluster_column, filter_column, filter_value)
+    if group_by not in df.columns:
+        raise HTTPException(status_code=404, detail=f"Unknown metadata column: {group_by}")
+
+    groups = df[group_by].astype(str).to_numpy()
+    ordered_groups = sorted(pd.unique(groups), key=lambda v: (not str(v).isdigit(), int(v) if str(v).isdigit() else str(v)))
+    cell_indices = df.index.to_numpy()
+    rng = np.random.default_rng(7)
+    rows: list[dict[str, Any]] = []
+
+    for gene_name, gene_idx in gene_indices:
+        values = _dense_vector(adata[cell_indices, gene_idx].X)
+        values = np.nan_to_num(values, nan=0.0, posinf=0.0, neginf=0.0).astype(float)
+        for group in ordered_groups:
+            group_mask = groups == group
+            group_values = values[group_mask]
+            count = int(group_values.size)
+            if count > max_points_per_group:
+                selected = rng.choice(count, size=max_points_per_group, replace=False)
+                sampled = group_values[selected]
+            else:
+                sampled = group_values
+            rows.append(
+                {
+                    "gene": gene_name,
+                    "group": str(group),
+                    "values": sampled.astype(float).tolist(),
+                    "count": count,
+                    "sampled_count": int(sampled.size),
+                    "mean_expression": float(group_values.mean()) if count else 0.0,
+                    "pct_expressing": float((group_values > 0).mean() * 100) if count else 0.0,
+                }
+            )
+
+    return {
+        "genes": [gene for gene, _ in gene_indices],
+        "missing": missing,
+        "group_by": group_by,
+        "groups": [str(group) for group in ordered_groups],
+        "max_points_per_group": max_points_per_group,
+        "rows": rows,
+    }

@@ -22,6 +22,7 @@ const STUDIES = [
 const EXPLORE_TABS = [
   { id: "scatter", label: "Scatter" },
   { id: "dotplot", label: "Dot plot" },
+  { id: "violin", label: "Violin plot" },
   { id: "heatmap", label: "Heat map" },
 ];
 
@@ -169,6 +170,7 @@ function dotPlotHeight(groupCount) {
 function StudyExplorer({ studyConfig = STUDIES[0] }) {
   const plotRef = useRef(null);
   const dotplotRef = useRef(null);
+  const violinRef = useRef(null);
   const heatmapRef = useRef(null);
   const [study, setStudy] = useState(null);
   const [cells, setCells] = useState([]);
@@ -182,6 +184,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
   const [pendingGene, setPendingGene] = useState("");
   const [geneResult, setGeneResult] = useState(null);
   const [matrixResult, setMatrixResult] = useState(null);
+  const [violinResult, setViolinResult] = useState(null);
   const [geneOptions, setGeneOptions] = useState([]);
   const [activeTab, setActiveTab] = useState("scatter");
   const [pointSize, setPointSize] = useState(2);
@@ -244,6 +247,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
         if (!geneToReload) {
           setGeneResult(null);
           setMatrixResult(null);
+          setViolinResult(null);
         }
         const suffix = colorBy ? `?color=${encodeURIComponent(colorBy)}` : "";
         const params = new URLSearchParams(suffix);
@@ -321,8 +325,12 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
       const matrixPayload = await getJson(
         `/api/matrix?genes=${encodeURIComponent(genes.join(","))}&group_by=${encodeURIComponent(clusterColumn)}&${params.toString()}`,
       );
+      const violinPayload = await getJson(
+        `/api/violin?genes=${encodeURIComponent(genes.join(","))}&group_by=${encodeURIComponent(clusterColumn)}&${params.toString()}`,
+      );
       setGeneResult(payload);
       setMatrixResult(matrixPayload);
+      setViolinResult(violinPayload);
       setGeneQuery(matrixPayload.genes.join(", "));
       setGeneOptions([]);
     } catch (err) {
@@ -360,13 +368,16 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
   const geneDisplay = matrixResult?.genes?.join(", ") || geneResult?.gene || geneQuery || "none";
   const isScatterTab = activeTab === "scatter";
   const isDotplotTab = activeTab === "dotplot";
+  const isViolinTab = activeTab === "violin";
   const isHeatmapTab = activeTab === "heatmap";
-  const sidebarTitle = isDotplotTab ? "Dot plot" : isHeatmapTab ? "Heat map" : "Scatter plot";
+  const sidebarTitle = isDotplotTab ? "Dot plot" : isViolinTab ? "Violin plot" : isHeatmapTab ? "Heat map" : "Scatter plot";
   const sidebarDescription = isDotplotTab
     ? "Compare selected gene expression across the current groups."
-    : isHeatmapTab
-      ? "Review mean expression patterns across the current groups."
-      : "Color, filter, and query expression across the current UMAP view.";
+    : isViolinTab
+      ? "Review per-cell expression distributions across the current groups."
+      : isHeatmapTab
+        ? "Review mean expression patterns across the current groups."
+        : "Color, filter, and query expression across the current UMAP view.";
   const clearGeneLabel = isScatterTab ? "Clear gene color" : "Clear genes";
   const clearGeneTitle = isScatterTab
     ? "Clear gene expression overlay and return to annotation colors"
@@ -490,7 +501,6 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
     const minMean = Math.min(...meanValues);
     const maxMean = Math.max(...meanValues);
     const expressionScale = rows.map((row) => (maxMean > minMean ? (row.mean_expression - minMean) / (maxMean - minMean) : 0));
-    const fractionLegend = [20, 40, 60, 80, 100];
     const data = [
       {
         type: "scatter",
@@ -520,20 +530,6 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
           line: { color: "#9ca3af", width: 0.5 },
         },
       },
-      ...fractionLegend.map((value) => ({
-        type: "scatter",
-        mode: "markers",
-        x: [null],
-        y: [null],
-        name: `${value}`,
-        hoverinfo: "skip",
-        showlegend: true,
-        marker: {
-          color: "#6b7280",
-          size: dotSizeFromPercent(value, maxDotSize),
-          sizemode: "diameter",
-        },
-      })),
     ];
 
     Plotly.react(
@@ -542,7 +538,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
       {
         autosize: true,
         height: plotHeight,
-        margin: { l: groupCount > 70 ? 62 : 78, r: 210, t: 18, b: 118 },
+        margin: { l: groupCount > 70 ? 62 : 78, r: 112, t: 18, b: 118 },
         paper_bgcolor: "#ffffff",
         plot_bgcolor: "#ffffff",
         xaxis: {
@@ -576,21 +572,96 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
           linecolor: "#475569",
           linewidth: 1,
         },
-        legend: {
-          title: { text: "Fraction of cells<br>in group (%)" },
-          x: 1.12,
-          y: 0.22,
-          xanchor: "left",
-          yanchor: "middle",
-          bgcolor: "rgba(255,255,255,0)",
-          borderwidth: 0,
-          font: { size: 11 },
-          traceorder: "normal",
-        },
       },
       { responsive: true, displaylogo: false, toImageButtonOptions: { filename: "gene-dot-plot", scale: 2 } },
     );
   }, [matrixResult, clusterColumn]);
+
+  useEffect(() => {
+    if (!violinRef.current) return;
+    if (!violinResult) {
+      Plotly.purge(violinRef.current);
+      return;
+    }
+
+    const rows = violinResult.rows ?? [];
+    const groupCount = Math.max(violinResult.groups.length, 1);
+    const rowTickFontSize = groupCount > 100 ? 8 : groupCount > 70 ? 9 : 10;
+    const palette = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#d97706", "#0891b2"];
+    const data = violinResult.genes.map((gene, index) => {
+      const x = [];
+      const y = [];
+      const text = [];
+      rows.filter((row) => row.gene === gene).forEach((row) => {
+        row.values.forEach((value) => {
+          x.push(value);
+          y.push(row.group);
+          text.push(`${gene}<br>${displayColumnName(clusterColumn)}: ${row.group}<br>Expression: ${Number(value).toFixed(3)}<br>Cells: ${row.count.toLocaleString()}<br>Sampled: ${row.sampled_count.toLocaleString()}`);
+        });
+      });
+      return {
+        type: "violin",
+        name: gene,
+        orientation: "h",
+        x,
+        y,
+        text,
+        hoverinfo: "text",
+        points: false,
+        box: { visible: true, width: 0.22 },
+        meanline: { visible: true },
+        spanmode: "soft",
+        line: { color: palette[index % palette.length], width: 1.2 },
+        fillcolor: palette[index % palette.length],
+        opacity: violinResult.genes.length > 1 ? 0.58 : 0.72,
+      };
+    });
+
+    Plotly.react(
+      violinRef.current,
+      data,
+      {
+        autosize: true,
+        height: dotPlotHeight(groupCount),
+        margin: { l: groupCount > 70 ? 62 : 78, r: violinResult.genes.length > 1 ? 122 : 28, t: 18, b: 54 },
+        paper_bgcolor: "#ffffff",
+        plot_bgcolor: "#ffffff",
+        violinmode: "group",
+        showlegend: violinResult.genes.length > 1,
+        xaxis: {
+          title: "Expression",
+          automargin: true,
+          showgrid: false,
+          zeroline: true,
+          zerolinecolor: "#cbd5e1",
+        },
+        yaxis: {
+          title: "",
+          type: "category",
+          categoryarray: violinResult.groups,
+          autorange: "reversed",
+          automargin: true,
+          tickfont: { size: rowTickFontSize },
+          showgrid: false,
+          zeroline: false,
+          showline: true,
+          mirror: true,
+          linecolor: "#475569",
+          linewidth: 1,
+        },
+        legend: {
+          x: 1.02,
+          y: 1,
+          xanchor: "left",
+          yanchor: "top",
+          bgcolor: "rgba(255,255,255,0.86)",
+          borderwidth: 0,
+          font: { size: 11 },
+        },
+      },
+      { responsive: true, displaylogo: false, toImageButtonOptions: { filename: "gene-violin-plot", scale: 2 } },
+    );
+  }, [violinResult, clusterColumn]);
 
   useEffect(() => {
     if (!heatmapRef.current) return;
@@ -644,6 +715,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
     return () => {
       if (node) Plotly.purge(node);
       if (dotplotRef.current) Plotly.purge(dotplotRef.current);
+      if (violinRef.current) Plotly.purge(violinRef.current);
       if (heatmapRef.current) Plotly.purge(heatmapRef.current);
     };
   }, []);
@@ -655,12 +727,14 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
     setGeneOptions([]);
     setGeneResult(null);
     setMatrixResult(null);
+    setViolinResult(null);
     setActiveTab("scatter");
     setError("");
   }
 
   function activePlotNode() {
     if (activeTab === "dotplot") return dotplotRef.current;
+    if (activeTab === "violin") return violinRef.current;
     if (activeTab === "heatmap") return heatmapRef.current;
     return plotRef.current;
   }
@@ -739,7 +813,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
         </div>
 
         <section className="control-group">
-          <label htmlFor="colorBy">{isScatterTab ? "Color by annotation" : "Filter by annotation"}</label>
+          <label htmlFor="colorBy">{isScatterTab ? "Color by annotation" : "Subset cells by"}</label>
           <select
             id="colorBy"
             value={colorBy}
@@ -798,7 +872,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
 
         <section className="control-group">
           <div className="filter-heading">
-            <label>{colorBy ? `${displayColumnName(colorBy)} values` : "Annotation values"}</label>
+            <label>{colorBy ? `${displayColumnName(colorBy)} ${isScatterTab ? "values" : "to include"}` : isScatterTab ? "Annotation values" : "Values to include"}</label>
             <div>
               <button type="button" onClick={() => setSelectedAnnotationValues([])} title="Show all values">
                 <Eye size={15} />
@@ -853,7 +927,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
         </section>
 
         <div className="actions">
-          <button type="button" onClick={() => { setGeneQuery(""); setGeneOptions([]); setGeneResult(null); setMatrixResult(null); }} title={clearGeneTitle}>
+          <button type="button" onClick={() => { setGeneQuery(""); setGeneOptions([]); setGeneResult(null); setMatrixResult(null); setViolinResult(null); }} title={clearGeneTitle}>
             <RefreshCcw size={17} />
             {clearGeneLabel}
           </button>
@@ -890,7 +964,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
             <strong>{geneDisplay}</strong>
           </div>
           <div>
-            <span>{isScatterTab ? "Annotation" : "Filter"}</span>
+            <span>{isScatterTab ? "Annotation" : "Subset"}</span>
             <strong>{colorBy ? displayColumnName(colorBy) : "none"}</strong>
           </div>
           <div>
@@ -940,6 +1014,17 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
             {!matrixResult && <span className="empty-state">Search one or more genes to show the dot plot.</span>}
           </div>
         </div>
+        <div className={activeTab === "violin" ? "dotplot-panel" : "dotplot-panel hidden-panel"}>
+          <div className="plot-toolbar compact">
+            <div>
+              <strong>{violinResult ? "Gene violin plot" : "Violin plot"}</strong>
+              <span>Per-cell expression distributions across {displayColumnName(clusterColumn)}</span>
+            </div>
+          </div>
+          <div ref={violinRef} className="dotplot">
+            {!violinResult && <span className="empty-state">Search one or more genes to show the violin plot.</span>}
+          </div>
+        </div>
         <div className={activeTab === "heatmap" ? "dotplot-panel" : "dotplot-panel hidden-panel"}>
           <div className="plot-toolbar compact">
             <div>
@@ -956,7 +1041,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
         <div className="legend-card">
           <div>
             <p className="eyebrow">Legend</p>
-            <h2>{activeTab === "dotplot" && matrixResult ? "Dot Plot" : geneResult ? geneResult.gene : displayColumnName(colorBy)}</h2>
+            <h2>{activeTab === "dotplot" && matrixResult ? "Dot Plot" : activeTab === "violin" && violinResult ? "Violin Plot" : geneResult ? geneResult.gene : displayColumnName(colorBy)}</h2>
           </div>
           {activeTab === "dotplot" && matrixResult ? (
             <div className="legend-dotplot">
@@ -969,8 +1054,36 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
                 <span>{displayColumnName(clusterColumn)}</span>
               </div>
               <p>Dot color shows relative mean expression across the current plot. Dot size shows the fraction of cells expressing each gene in each group.</p>
+              <div className="dot-size-legend" aria-label="Fraction of cells in group percent">
+                <strong>Fraction of Cells</strong>
+                <div>
+                  {[20, 40, 60, 80, 100].map((value) => (
+                    <span key={value}>
+                      <i style={{ width: dotSizeFromPercent(value, 11), height: dotSizeFromPercent(value, 11) }} />
+                      <label>{value}%</label>
+                    </span>
+                  ))}
+                </div>
+              </div>
               <div className="legend-gene-list">
                 {matrixResult.genes.map((gene) => (
+                  <span key={gene}>{gene}</span>
+                ))}
+              </div>
+            </div>
+          ) : activeTab === "violin" && violinResult ? (
+            <div className="legend-dotplot">
+              <div>
+                <strong>{violinResult.genes.length}</strong>
+                <span>Selected Genes</span>
+              </div>
+              <div>
+                <strong>{violinResult.groups.length}</strong>
+                <span>{displayColumnName(clusterColumn)}</span>
+              </div>
+              <p>Violin width shows the sampled per-cell expression distribution. Box marks the interquartile range and the center line marks the mean.</p>
+              <div className="legend-gene-list">
+                {violinResult.genes.map((gene) => (
                   <span key={gene}>{gene}</span>
                 ))}
               </div>
