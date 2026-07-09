@@ -679,6 +679,54 @@ select {
   font-size: 12px;
 }
 
+
+.legend-dotplot {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.legend-dotplot > div:not(.legend-gene-list) {
+  border: 1px solid #d8e0ea;
+  border-radius: 7px;
+  padding: 10px;
+  background: #f8fafc;
+}
+
+.legend-dotplot strong,
+.legend-dotplot span {
+  display: block;
+}
+
+.legend-dotplot > div > span,
+.legend-dotplot p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.legend-gene-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.legend-gene-list span {
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid #c8d8e6;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #eef7f8;
+  color: #075985;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .legend-expression {
   display: grid;
   grid-template-columns: 1fr 1fr;

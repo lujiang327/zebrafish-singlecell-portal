@@ -134,8 +134,14 @@ function clusterLabelAnnotations(clusterLabels) {
   }));
 }
 
-function dotSizeFromPercent(value) {
-  return Math.min(8, Math.max(1.8, Math.sqrt(value) * 0.9));
+function dotSizeFromPercent(value, maxSize = 8) {
+  return Math.min(maxSize, Math.max(1.6, Math.sqrt(value) * maxSize * 0.1));
+}
+
+function dotPlotMaxSize(geneCount, groupCount) {
+  const geneSpace = geneCount <= 2 ? 16 : geneCount <= 5 ? 13 : geneCount <= 12 ? 10 : 7;
+  const groupSpace = groupCount <= 25 ? 13 : groupCount <= 60 ? 10 : groupCount <= 100 ? 7 : 5;
+  return Math.max(3.5, Math.min(geneSpace, groupSpace));
 }
 
 function App() {
@@ -411,18 +417,14 @@ function App() {
         zeroline: true,
         zerolinecolor: "#555555",
         zerolinewidth: 1,
-        showgrid: true,
-        gridcolor: "#eceff3",
-        gridwidth: 1,
+        showgrid: false,
       },
       yaxis: {
         title: "UMAP 2",
         zeroline: true,
         zerolinecolor: "#555555",
         zerolinewidth: 1,
-        showgrid: true,
-        gridcolor: "#eceff3",
-        gridwidth: 1,
+        showgrid: false,
       },
       dragmode: "lasso",
       hovermode: "closest",
@@ -450,7 +452,9 @@ function App() {
     const rows = matrixResult.rows ?? [];
     const geneIndex = new Map(matrixResult.genes.map((gene, index) => [gene, index]));
     const geneCount = Math.max(matrixResult.genes.length, 1);
-    const xRange = geneCount <= 3 ? [-2, geneCount + 1] : [-0.6, geneCount - 0.4];
+    const groupCount = Math.max(matrixResult.groups.length, 1);
+    const maxDotSize = dotPlotMaxSize(geneCount, groupCount);
+    const xRange = geneCount <= 3 ? [-1.5, geneCount + 0.5] : [-0.6, geneCount - 0.4];
     const maxMean = Math.max(...rows.map((row) => row.mean_expression), 0);
     const expressionScale = rows.map((row) => (maxMean > 0 ? row.mean_expression / maxMean : 0));
     const fractionLegend = [20, 40, 60, 80, 100];
@@ -478,7 +482,7 @@ function App() {
           cmax: 1,
           showscale: true,
           colorbar: { title: "Mean expression<br>in group", thickness: 12, len: 0.36, y: 0.77, yanchor: "middle", x: 1.02 },
-          size: rows.map((row) => dotSizeFromPercent(row.pct_expressing)),
+          size: rows.map((row) => dotSizeFromPercent(row.pct_expressing, maxDotSize)),
           sizemode: "diameter",
           opacity: 0.95,
           line: { color: "#9ca3af", width: 0.5 },
@@ -494,7 +498,7 @@ function App() {
         showlegend: true,
         marker: {
           color: "#6b7280",
-          size: dotSizeFromPercent(value),
+          size: dotSizeFromPercent(value, maxDotSize),
           sizemode: "diameter",
         },
       })),
@@ -509,7 +513,7 @@ function App() {
         paper_bgcolor: "#ffffff",
         plot_bgcolor: "#ffffff",
         xaxis: {
-          title: "Selected Genes",
+          title: "",
           type: "linear",
           range: xRange,
           tickmode: "array",
@@ -519,15 +523,23 @@ function App() {
           tickangle: -90,
           showgrid: false,
           zeroline: false,
+          showline: true,
+          mirror: true,
+          linecolor: "#475569",
+          linewidth: 1,
         },
         yaxis: {
-          title: displayColumnName(clusterColumn),
+          title: "",
           type: "category",
           categoryarray: matrixResult.groups,
           autorange: "reversed",
           automargin: true,
           showgrid: false,
           zeroline: false,
+          showline: true,
+          mirror: true,
+          linecolor: "#475569",
+          linewidth: 1,
         },
         legend: {
           title: { text: "Fraction of cells<br>in group (%)" },
@@ -806,9 +818,9 @@ function App() {
         </section>
 
         <div className="actions">
-          <button type="button" onClick={() => { setGeneResult(null); setDotplotResult(null); setMatrixResult(null); }} title="Return to annotation coloring">
+          <button type="button" onClick={() => { setGeneResult(null); setDotplotResult(null); setMatrixResult(null); }} title="Clear gene expression overlay and return to annotation colors">
             <RefreshCcw size={17} />
-            Annotation color
+            Clear gene color
           </button>
           <button type="button" onClick={downloadActivePlot} title="Download the active plot as PNG">
             <Download size={17} />
@@ -901,9 +913,26 @@ function App() {
         <div className="legend-card">
           <div>
             <p className="eyebrow">Legend</p>
-            <h2>{geneResult ? geneResult.gene : displayColumnName(colorBy)}</h2>
+            <h2>{activeTab === "dotplot" && matrixResult ? "Dot Plot" : geneResult ? geneResult.gene : displayColumnName(colorBy)}</h2>
           </div>
-          {!geneResult ? (
+          {activeTab === "dotplot" && matrixResult ? (
+            <div className="legend-dotplot">
+              <div>
+                <strong>{matrixResult.genes.length}</strong>
+                <span>Selected Genes</span>
+              </div>
+              <div>
+                <strong>{matrixResult.groups.length}</strong>
+                <span>{displayColumnName(clusterColumn)}</span>
+              </div>
+              <p>Dot color shows scaled mean expression. Dot size shows the fraction of cells expressing each gene in each group.</p>
+              <div className="legend-gene-list">
+                {matrixResult.genes.map((gene) => (
+                  <span key={gene}>{gene}</span>
+                ))}
+              </div>
+            </div>
+          ) : !geneResult ? (
             <div className="legend-list">
               {legendItems.slice(0, 80).map((item) => (
                 <div key={item.label} className="legend-row">
