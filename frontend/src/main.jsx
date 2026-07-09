@@ -139,9 +139,13 @@ function dotSizeFromPercent(value, maxSize = 8) {
 }
 
 function dotPlotMaxSize(geneCount, groupCount) {
-  const geneSpace = geneCount <= 2 ? 16 : geneCount <= 5 ? 13 : geneCount <= 12 ? 10 : 7;
-  const groupSpace = groupCount <= 25 ? 13 : groupCount <= 60 ? 10 : groupCount <= 100 ? 7 : 5;
-  return Math.max(3.5, Math.min(geneSpace, groupSpace));
+  const geneSpace = geneCount <= 2 ? 13 : geneCount <= 5 ? 11 : geneCount <= 12 ? 8 : 6;
+  const groupSpace = groupCount <= 25 ? 11 : groupCount <= 60 ? 7 : groupCount <= 100 ? 4.8 : 3.6;
+  return Math.max(2.4, Math.min(geneSpace, groupSpace));
+}
+
+function dotPlotHeight(groupCount) {
+  return Math.max(620, Math.min(1800, groupCount * 11 + 260));
 }
 
 function App() {
@@ -342,6 +346,19 @@ function App() {
     }));
   }, [annotationFilterItems, colorLabels, colorMap]);
   const geneDisplay = matrixResult?.genes?.join(", ") || geneResult?.gene || geneQuery || "none";
+  const isScatterTab = activeTab === "scatter";
+  const isDotplotTab = activeTab === "dotplot";
+  const isHeatmapTab = activeTab === "heatmap";
+  const sidebarTitle = isDotplotTab ? "Dot plot" : isHeatmapTab ? "Heat map" : "Scatter plot";
+  const sidebarDescription = isDotplotTab
+    ? "Compare selected gene expression across the current groups."
+    : isHeatmapTab
+      ? "Review mean expression patterns across the current groups."
+      : "Color, filter, and query expression across the current UMAP view.";
+  const clearGeneLabel = isScatterTab ? "Clear gene color" : "Clear genes";
+  const clearGeneTitle = isScatterTab
+    ? "Clear gene expression overlay and return to annotation colors"
+    : "Clear selected genes and reset expression plots";
 
   const plotData = useMemo(() => {
     const x = cells.map((cell) => cell.x);
@@ -454,6 +471,8 @@ function App() {
     const geneCount = Math.max(matrixResult.genes.length, 1);
     const groupCount = Math.max(matrixResult.groups.length, 1);
     const maxDotSize = dotPlotMaxSize(geneCount, groupCount);
+    const plotHeight = dotPlotHeight(groupCount);
+    const rowTickFontSize = groupCount > 100 ? 8 : groupCount > 70 ? 9 : 10;
     const xRange = geneCount <= 3 ? [-1.5, geneCount + 0.5] : [-0.6, geneCount - 0.4];
     const maxMean = Math.max(...rows.map((row) => row.mean_expression), 0);
     const expressionScale = rows.map((row) => (maxMean > 0 ? row.mean_expression / maxMean : 0));
@@ -509,7 +528,8 @@ function App() {
       data,
       {
         autosize: true,
-        margin: { l: 78, r: 210, t: 18, b: 118 },
+        height: plotHeight,
+        margin: { l: groupCount > 70 ? 62 : 78, r: 210, t: 18, b: 118 },
         paper_bgcolor: "#ffffff",
         plot_bgcolor: "#ffffff",
         xaxis: {
@@ -521,6 +541,7 @@ function App() {
           ticktext: matrixResult.genes,
           automargin: true,
           tickangle: -90,
+          tickfont: { size: 11 },
           showgrid: false,
           zeroline: false,
           showline: true,
@@ -534,6 +555,7 @@ function App() {
           categoryarray: matrixResult.groups,
           autorange: "reversed",
           automargin: true,
+          tickfont: { size: rowTickFontSize },
           showgrid: false,
           zeroline: false,
           showline: true,
@@ -684,8 +706,8 @@ function App() {
       <aside className="sidebar">
         <div>
           <p className="eyebrow">Explore controls</p>
-          <h2>Scatter plot</h2>
-          <p className="description">Color, filter, and query expression across the current UMAP view.</p>
+          <h2>{sidebarTitle}</h2>
+          <p className="description">{sidebarDescription}</p>
         </div>
 
         <div className="stats">
@@ -708,7 +730,7 @@ function App() {
         </div>
 
         <section className="control-group">
-          <label htmlFor="colorBy">Color by annotation</label>
+          <label htmlFor="colorBy">{isScatterTab ? "Color by annotation" : "Filter by annotation"}</label>
           <select
             id="colorBy"
             value={colorBy}
@@ -726,7 +748,7 @@ function App() {
         </section>
 
         <section className="control-group">
-          <label htmlFor="clusterBy">Cluster labels</label>
+          <label htmlFor="clusterBy">{isScatterTab ? "Cluster labels" : "Group by"}</label>
           <select id="clusterBy" value={clusterColumn} onChange={(event) => setClusterColumn(event.target.value)}>
             {clusterColumns.map((column) => (
               <option key={column.name} value={column.name}>
@@ -734,36 +756,40 @@ function App() {
               </option>
             ))}
           </select>
-          <label className="toggle-row">
-            <input
-              type="checkbox"
-              checked={showClusterLabels}
-              onChange={(event) => setShowClusterLabels(event.target.checked)}
-            />
-            Show {displayColumnName(clusterColumn)} on UMAP
-          </label>
+          {isScatterTab && (
+            <label className="toggle-row">
+              <input
+                type="checkbox"
+                checked={showClusterLabels}
+                onChange={(event) => setShowClusterLabels(event.target.checked)}
+              />
+              Show {displayColumnName(clusterColumn)} on UMAP
+            </label>
+          )}
         </section>
 
-        <section className="control-group">
-          <div className="range-heading">
-            <label htmlFor="pointSize">Point size</label>
-            <span>{pointSize.toFixed(1)}</span>
-          </div>
-          <input
-            id="pointSize"
-            className="range-input"
-            type="range"
-            min="0.8"
-            max="5"
-            step="0.2"
-            value={pointSize}
-            onChange={(event) => setPointSize(Number(event.target.value))}
-          />
-        </section>
+        {isScatterTab && (
+          <section className="control-group">
+            <div className="range-heading">
+              <label htmlFor="pointSize">Point size</label>
+              <span>{pointSize.toFixed(1)}</span>
+            </div>
+            <input
+              id="pointSize"
+              className="range-input"
+              type="range"
+              min="0.8"
+              max="5"
+              step="0.2"
+              value={pointSize}
+              onChange={(event) => setPointSize(Number(event.target.value))}
+            />
+          </section>
+        )}
 
         <section className="control-group">
           <div className="filter-heading">
-            <label>{colorBy ? displayColumnName(colorBy) : "Annotation"} values</label>
+            <label>{colorBy ? `${displayColumnName(colorBy)} values` : "Annotation values"}</label>
             <div>
               <button type="button" onClick={() => setSelectedAnnotationValues([])} title="Show all values">
                 <Eye size={15} />
@@ -818,9 +844,9 @@ function App() {
         </section>
 
         <div className="actions">
-          <button type="button" onClick={() => { setGeneResult(null); setDotplotResult(null); setMatrixResult(null); }} title="Clear gene expression overlay and return to annotation colors">
+          <button type="button" onClick={() => { setGeneQuery(""); setGeneOptions([]); setGeneResult(null); setDotplotResult(null); setMatrixResult(null); }} title={clearGeneTitle}>
             <RefreshCcw size={17} />
-            Clear gene color
+            {clearGeneLabel}
           </button>
           <button type="button" onClick={downloadActivePlot} title="Download the active plot as PNG">
             <Download size={17} />
@@ -832,7 +858,7 @@ function App() {
           Clear filters
         </button>
 
-        {geneResult && (
+        {isScatterTab && geneResult && (
           <div className="metric-list">
             <div>
               <span>{geneResult.mean.toFixed(3)}</span>
@@ -855,11 +881,11 @@ function App() {
             <strong>{geneDisplay}</strong>
           </div>
           <div>
-            <span>Annotation</span>
+            <span>{isScatterTab ? "Annotation" : "Filter"}</span>
             <strong>{colorBy ? displayColumnName(colorBy) : "none"}</strong>
           </div>
           <div>
-            <span>Cluster</span>
+            <span>{isScatterTab ? "Cluster" : "Group"}</span>
             <strong>{displayColumnName(clusterColumn)}</strong>
           </div>
           <div>
@@ -878,13 +904,20 @@ function App() {
             Heat map
           </button>
         </div>
-        <div className="plot-toolbar">
-          <div>
-            <strong>{geneResult ? geneResult.gene : displayColumnName(colorBy)}</strong>
-            <span>{study?.embedding ?? "embedding"}</span>
+        {isScatterTab && (
+          <div className="plot-toolbar">
+            <div>
+              <strong>{geneResult ? geneResult.gene : displayColumnName(colorBy)}</strong>
+              <span>{study?.embedding ?? "embedding"}</span>
+            </div>
+            {plotLoading && <Loader2 className="spin" size={18} />}
           </div>
-          {plotLoading && <Loader2 className="spin" size={18} />}
-        </div>
+        )}
+        {!isScatterTab && plotLoading && (
+          <div className="plot-toolbar compact status-toolbar">
+            <Loader2 className="spin" size={18} />
+          </div>
+        )}
         <div ref={plotRef} className={activeTab === "scatter" ? "plot" : "plot hidden-panel"} />
         <div className={activeTab === "dotplot" ? "dotplot-panel" : "dotplot-panel hidden-panel"}>
           <div className="plot-toolbar compact">

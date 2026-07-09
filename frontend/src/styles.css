@@ -614,7 +614,7 @@ select {
   min-height: 620px;
   border: 1px solid #d7e0ea;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: auto;
   background: #ffffff;
 }
 
