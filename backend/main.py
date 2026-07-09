@@ -11,7 +11,6 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from scipy import sparse
 
 
@@ -327,10 +326,3 @@ def expression_matrix(
         "groups": [str(group) for group in ordered_groups],
         "rows": rows,
     }
-
-
-@app.get("/api/download/h5ad")
-def download_h5ad() -> FileResponse:
-    if not H5AD_PATH.exists():
-        raise HTTPException(status_code=404, detail="h5ad file not found")
-    return FileResponse(H5AD_PATH, filename=H5AD_PATH.name)

@@ -23,8 +23,20 @@ const COLUMN_LABELS = {
   leiden: "cell clusters",
 };
 
+function titleCaseLabel(value) {
+  return String(value || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function displayColumnName(name) {
-  return COLUMN_LABELS[name] ?? name;
+  return titleCaseLabel(COLUMN_LABELS[name] ?? name);
+}
+
+function displayValue(value) {
+  return titleCaseLabel(value || "Unannotated");
 }
 
 function visibleColorColumns(columns) {
@@ -94,10 +106,22 @@ function parseGenes(value) {
     .filter(Boolean);
 }
 
+function activeGeneToken(value) {
+  const match = value.match(/(?:^|[,\s]+)([^,\s]*)$/);
+  return match ? match[1] : value.trim();
+}
+
+function replaceActiveGeneToken(value, gene) {
+  const trimmedGene = gene.trim();
+  if (!value.trim()) return trimmedGene;
+  if (/[,\s]$/.test(value)) return `${value}${trimmedGene}`;
+  return value.replace(/([^,\s]*)$/, trimmedGene);
+}
+
 function clusterLabelTraces(clusterLabels) {
   const x = clusterLabels.map((label) => label.x);
   const y = clusterLabels.map((label) => label.y);
-  const labels = clusterLabels.map((label) => label.cluster);
+  const labels = clusterLabels.map((label) => displayValue(label.cluster));
   return [
     {
       type: "scatter",
@@ -127,7 +151,7 @@ function clusterLabelTraces(clusterLabels) {
 }
 
 function dotSizeFromPercent(value) {
-  return Math.min(10, Math.max(2, Math.sqrt(value) * 1.05));
+  return Math.min(8, Math.max(1.8, Math.sqrt(value) * 0.9));
 }
 
 function App() {
@@ -248,7 +272,7 @@ function App() {
   }, [activeTab, clusterColumn, colorBy, geneQuery, geneResult, loading, selectedAnnotationValues, study]);
 
   useEffect(() => {
-    const query = geneQuery.trim();
+    const query = activeGeneToken(geneQuery.trim());
     if (query.length < 1) {
       setGeneOptions([]);
       return;
@@ -263,6 +287,13 @@ function App() {
     }, 180);
     return () => clearTimeout(handle);
   }, [geneQuery]);
+
+  async function chooseGeneSuggestion(gene) {
+    const nextQuery = replaceActiveGeneToken(geneQuery, gene);
+    setGeneQuery(nextQuery);
+    setGeneOptions([]);
+    await loadGene(nextQuery);
+  }
 
   async function loadGene(geneName = geneQuery) {
     const gene = geneName.trim();
@@ -343,9 +374,15 @@ function App() {
           hoverinfo: "text",
           marker: {
             color: geneResult.values,
-            colorscale: "Viridis",
+            colorscale: [
+              [0, "#d1d5db"],
+              [0.45, "#fde68a"],
+              [1, "#dc2626"],
+            ],
             showscale: true,
             colorbar: { title: geneResult.gene },
+            cmin: geneResult.min,
+            cmax: geneResult.max,
             size: pointSize,
             opacity: 0.78,
           },
@@ -419,7 +456,8 @@ function App() {
     const config = {
       responsive: true,
       displaylogo: false,
-      modeBarButtonsToRemove: ["toImage", "sendDataToCloud"],
+      modeBarButtonsToRemove: ["sendDataToCloud"],
+      toImageButtonOptions: { filename: geneResult ? `${geneResult.gene}-umap` : "umap", scale: 2 },
     };
 
     Plotly.react(plotRef.current, plotData, layout, config);
@@ -433,6 +471,9 @@ function App() {
     }
 
     const rows = matrixResult.rows ?? [];
+    const geneIndex = new Map(matrixResult.genes.map((gene, index) => [gene, index]));
+    const geneCount = Math.max(matrixResult.genes.length, 1);
+    const xRange = geneCount <= 3 ? [-2, geneCount + 1] : [-0.6, geneCount - 0.4];
     const maxMean = Math.max(...rows.map((row) => row.mean_expression), 0);
     const expressionScale = rows.map((row) => (maxMean > 0 ? row.mean_expression / maxMean : 0));
     const fractionLegend = [20, 40, 60, 80, 100];
@@ -441,7 +482,7 @@ function App() {
         type: "scatter",
         mode: "markers",
         showlegend: false,
-        x: rows.map((row) => row.gene),
+        x: rows.map((row) => geneIndex.get(row.gene) ?? 0),
         y: rows.map((row) => row.group),
         text: rows.map(
           (row, index) =>
@@ -459,7 +500,7 @@ function App() {
           cmin: 0,
           cmax: 1,
           showscale: true,
-          colorbar: { title: "Mean expression<br>in group", thickness: 12 },
+          colorbar: { title: "Mean expression<br>in group", thickness: 12, len: 0.36, y: 0.77, yanchor: "middle", x: 1.02 },
           size: rows.map((row) => dotSizeFromPercent(row.pct_expressing)),
           sizemode: "diameter",
           opacity: 0.95,
@@ -487,17 +528,19 @@ function App() {
       data,
       {
         autosize: true,
-        margin: { l: 78, r: 170, t: 18, b: 118 },
+        margin: { l: 78, r: 210, t: 18, b: 118 },
         paper_bgcolor: "#ffffff",
         plot_bgcolor: "#ffffff",
         xaxis: {
-          title: "Selected genes",
-          type: "category",
-          categoryarray: matrixResult.genes,
+          title: "Selected Genes",
+          type: "linear",
+          range: xRange,
+          tickmode: "array",
+          tickvals: matrixResult.genes.map((_, index) => index),
+          ticktext: matrixResult.genes,
           automargin: true,
           tickangle: -90,
-          showgrid: true,
-          gridcolor: "#eef2f6",
+          showgrid: false,
           zeroline: false,
         },
         yaxis: {
@@ -506,14 +549,13 @@ function App() {
           categoryarray: matrixResult.groups,
           autorange: "reversed",
           automargin: true,
-          showgrid: true,
-          gridcolor: "#eef2f6",
+          showgrid: false,
           zeroline: false,
         },
         legend: {
           title: { text: "Fraction of cells<br>in group (%)" },
-          x: 1.04,
-          y: 0.24,
+          x: 1.12,
+          y: 0.22,
           xanchor: "left",
           yanchor: "middle",
           bgcolor: "rgba(255,255,255,0)",
@@ -522,7 +564,7 @@ function App() {
           traceorder: "normal",
         },
       },
-      { responsive: true, displaylogo: false },
+      { responsive: true, displaylogo: false, toImageButtonOptions: { filename: "gene-dot-plot", scale: 2 } },
     );
   }, [matrixResult, clusterColumn]);
 
@@ -566,10 +608,10 @@ function App() {
         margin: { l: 100, r: 20, t: 8, b: 62 },
         paper_bgcolor: "#ffffff",
         plot_bgcolor: "#ffffff",
-        xaxis: { title: clusterColumn, type: "category", automargin: true },
+        xaxis: { title: displayColumnName(clusterColumn), type: "category", automargin: true },
         yaxis: { automargin: true },
       },
-      { responsive: true, displaylogo: false },
+      { responsive: true, displaylogo: false, toImageButtonOptions: { filename: "expression-heat-map", scale: 2 } },
     );
   }, [matrixResult, clusterColumn]);
 
@@ -584,6 +626,19 @@ function App() {
 
   function clearFilters() {
     setSelectedAnnotationValues([]);
+  }
+
+  function activePlotNode() {
+    if (activeTab === "dotplot") return dotplotRef.current;
+    if (activeTab === "heatmap") return heatmapRef.current;
+    return plotRef.current;
+  }
+
+  function downloadActivePlot() {
+    const node = activePlotNode();
+    if (!node) return;
+    const filename = activeTab === "scatter" ? (geneResult ? `${geneResult.gene}-umap` : "umap") : activeTab;
+    Plotly.downloadImage(node, { format: "png", filename, scale: 2 });
   }
 
   function toggleAnnotationValue(value) {
@@ -627,10 +682,6 @@ function App() {
             <strong>{study?.n_genes?.toLocaleString() ?? "-"}</strong>
             <span>Genes</span>
           </div>
-          <a href={`${API_BASE}/api/download/h5ad`}>
-            <Download size={16} />
-            Download
-          </a>
         </div>
       </header>
 
@@ -700,7 +751,7 @@ function App() {
               checked={showClusterLabels}
               onChange={(event) => setShowClusterLabels(event.target.checked)}
             />
-            Show numbers on UMAP
+            Show {displayColumnName(clusterColumn)} on UMAP
           </label>
         </section>
 
@@ -769,7 +820,7 @@ function App() {
           {geneOptions.length > 0 && (
             <div className="suggestions">
               {geneOptions.map((gene) => (
-                <button key={gene} type="button" onClick={() => loadGene(gene)}>
+                <button key={gene} type="button" onClick={() => chooseGeneSuggestion(gene)}>
                   {gene}
                 </button>
               ))}
@@ -782,10 +833,10 @@ function App() {
             <RefreshCcw size={17} />
             Annotation color
           </button>
-          <a href={`${API_BASE}/api/download/h5ad`}>
+          <button type="button" onClick={downloadActivePlot} title="Download the active plot as PNG">
             <Download size={17} />
-            h5ad
-          </a>
+            Download plot
+          </button>
         </div>
 
         <button type="button" className="clear-button" onClick={shareView}>
@@ -845,7 +896,7 @@ function App() {
         </div>
         <div className="plot-toolbar">
           <div>
-            <strong>{geneResult ? geneResult.gene : colorBy}</strong>
+            <strong>{geneResult ? geneResult.gene : displayColumnName(colorBy)}</strong>
             <span>{study?.embedding ?? "embedding"}</span>
           </div>
           {plotLoading && <Loader2 className="spin" size={18} />}
