@@ -1,11 +1,29 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import Plotly from "plotly.js-dist-min";
-import { Download, Dna, Eye, EyeOff, Loader2, RefreshCcw, Search } from "lucide-react";
+import { ArrowLeft, Download, Dna, Eye, EyeOff, Loader2, RefreshCcw, Search } from "lucide-react";
 import "./styles.css";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE ?? `${window.location.protocol}//${window.location.hostname}:8000`;
+
+const STUDIES = [
+  {
+    id: "zebrafish-singlecell",
+    title: "Zebrafish Single-Cell Portal",
+    species: "Zebrafish",
+    tissue: "Single-cell RNA-seq",
+    status: "Ready",
+    description:
+      "Interactive UMAP, annotation filters, gene expression, dot plots, and heat maps for the processed zebrafish single-cell study.",
+  },
+];
+
+const EXPLORE_TABS = [
+  { id: "scatter", label: "Scatter" },
+  { id: "dotplot", label: "Dot plot" },
+  { id: "heatmap", label: "Heat map" },
+];
 
 async function getJson(path) {
   const response = await fetch(`${API_BASE}${path}`);
@@ -148,7 +166,7 @@ function dotPlotHeight(groupCount) {
   return Math.max(620, Math.min(1800, groupCount * 11 + 260));
 }
 
-function App() {
+function StudyExplorer({ studyConfig = STUDIES[0] }) {
   const plotRef = useRef(null);
   const dotplotRef = useRef(null);
   const heatmapRef = useRef(null);
@@ -163,7 +181,6 @@ function App() {
   const [geneQuery, setGeneQuery] = useState("");
   const [pendingGene, setPendingGene] = useState("");
   const [geneResult, setGeneResult] = useState(null);
-  const [dotplotResult, setDotplotResult] = useState(null);
   const [matrixResult, setMatrixResult] = useState(null);
   const [geneOptions, setGeneOptions] = useState([]);
   const [activeTab, setActiveTab] = useState("scatter");
@@ -208,7 +225,7 @@ function App() {
           setGeneQuery(genes);
           setPendingGene(genes);
         }
-        if (urlTab === "dotplot" || urlTab === "scatter" || urlTab === "heatmap") setActiveTab(urlTab);
+        if (EXPLORE_TABS.some((tab) => tab.id === urlTab)) setActiveTab(urlTab);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -226,7 +243,6 @@ function App() {
         const geneToReload = pendingGene || geneQuery.trim() || geneResult?.gene || "";
         if (!geneToReload) {
           setGeneResult(null);
-          setDotplotResult(null);
           setMatrixResult(null);
         }
         const suffix = colorBy ? `?color=${encodeURIComponent(colorBy)}` : "";
@@ -302,14 +318,10 @@ function App() {
       const genes = parseGenes(gene);
       const firstGene = genes[0];
       const payload = await getJson(`/api/expression/${encodeURIComponent(firstGene)}?${params.toString()}`);
-      const dotPayload = await getJson(
-        `/api/dotplot/${encodeURIComponent(firstGene)}?group_by=${encodeURIComponent(clusterColumn)}&${params.toString()}`,
-      );
       const matrixPayload = await getJson(
         `/api/matrix?genes=${encodeURIComponent(genes.join(","))}&group_by=${encodeURIComponent(clusterColumn)}&${params.toString()}`,
       );
       setGeneResult(payload);
-      setDotplotResult(dotPayload);
       setMatrixResult(matrixPayload);
       setGeneQuery(matrixPayload.genes.join(", "));
       setGeneOptions([]);
@@ -474,8 +486,10 @@ function App() {
     const plotHeight = dotPlotHeight(groupCount);
     const rowTickFontSize = groupCount > 100 ? 8 : groupCount > 70 ? 9 : 10;
     const xRange = geneCount <= 3 ? [-1.5, geneCount + 0.5] : [-0.6, geneCount - 0.4];
-    const maxMean = Math.max(...rows.map((row) => row.mean_expression), 0);
-    const expressionScale = rows.map((row) => (maxMean > 0 ? row.mean_expression / maxMean : 0));
+    const meanValues = rows.map((row) => row.mean_expression);
+    const minMean = Math.min(...meanValues);
+    const maxMean = Math.max(...meanValues);
+    const expressionScale = rows.map((row) => (maxMean > minMean ? (row.mean_expression - minMean) / (maxMean - minMean) : 0));
     const fractionLegend = [20, 40, 60, 80, 100];
     const data = [
       {
@@ -486,21 +500,20 @@ function App() {
         y: rows.map((row) => row.group),
         text: rows.map(
           (row, index) =>
-            `${row.gene}<br>${displayColumnName(clusterColumn)}: ${row.group}<br>Mean expression: ${row.mean_expression.toFixed(3)}<br>Scaled expression: ${expressionScale[index].toFixed(3)}<br>Fraction expressing: ${row.pct_expressing.toFixed(1)}%<br>Cells: ${row.count.toLocaleString()}`,
+            `${row.gene}<br>${displayColumnName(clusterColumn)}: ${row.group}<br>Mean expression: ${row.mean_expression.toFixed(3)}<br>Relative expression: ${expressionScale[index].toFixed(3)}<br>Fraction expressing: ${row.pct_expressing.toFixed(1)}%<br>Cells: ${row.count.toLocaleString()}`,
         ),
         hoverinfo: "text",
         marker: {
           color: expressionScale,
           colorscale: [
-            [0, "#fff7ec"],
-            [0.35, "#fcbba1"],
-            [0.7, "#fb4a2a"],
-            [1, "#7f0000"],
+            [0, "#d1d5db"],
+            [0.45, "#fde68a"],
+            [1, "#dc2626"],
           ],
           cmin: 0,
           cmax: 1,
           showscale: true,
-          colorbar: { title: "Mean expression<br>in group", thickness: 12, len: 0.36, y: 0.77, yanchor: "middle", x: 1.02 },
+          colorbar: { title: "Relative mean<br>expression", thickness: 12, len: 0.36, y: 0.77, yanchor: "middle", x: 1.02 },
           size: rows.map((row) => dotSizeFromPercent(row.pct_expressing, maxDotSize)),
           sizemode: "diameter",
           opacity: 0.95,
@@ -641,7 +654,6 @@ function App() {
     setPendingGene("");
     setGeneOptions([]);
     setGeneResult(null);
-    setDotplotResult(null);
     setMatrixResult(null);
     setActiveTab("scatter");
     setError("");
@@ -681,8 +693,12 @@ function App() {
       <header className="study-header">
         <div className="study-title-block">
           <p className="eyebrow">Single Cell Portal</p>
-          <h1>{study?.title ?? "Zebrafish Single-Cell Portal"}</h1>
-          <p>{study?.description}</p>
+          <a className="back-link" href="/">
+            <ArrowLeft size={15} />
+            All Studies
+          </a>
+          <h1>{study?.title ?? studyConfig.title}</h1>
+          <p>{study?.description ?? studyConfig.description}</p>
         </div>
         <div className="study-header-stats">
           <div>
@@ -695,13 +711,6 @@ function App() {
           </div>
         </div>
       </header>
-
-      <nav className="study-tabs">
-        <button type="button">Study Summary</button>
-        <button type="button" className="active">Explore</button>
-        <button type="button">Files</button>
-      </nav>
-
       <section className="explore-shell">
       <aside className="sidebar">
         <div>
@@ -844,7 +853,7 @@ function App() {
         </section>
 
         <div className="actions">
-          <button type="button" onClick={() => { setGeneQuery(""); setGeneOptions([]); setGeneResult(null); setDotplotResult(null); setMatrixResult(null); }} title={clearGeneTitle}>
+          <button type="button" onClick={() => { setGeneQuery(""); setGeneOptions([]); setGeneResult(null); setMatrixResult(null); }} title={clearGeneTitle}>
             <RefreshCcw size={17} />
             {clearGeneLabel}
           </button>
@@ -894,15 +903,16 @@ function App() {
           </div>
         </div>
         <div className="tabs">
-          <button type="button" className={activeTab === "scatter" ? "active" : ""} onClick={() => setActiveTab("scatter")}>
-            Scatter
-          </button>
-          <button type="button" className={activeTab === "dotplot" ? "active" : ""} onClick={() => setActiveTab("dotplot")}>
-            Dot plot
-          </button>
-          <button type="button" className={activeTab === "heatmap" ? "active" : ""} onClick={() => setActiveTab("heatmap")}>
-            Heat map
-          </button>
+          {EXPLORE_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={activeTab === tab.id ? "active" : ""}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
         {isScatterTab && (
           <div className="plot-toolbar">
@@ -958,7 +968,7 @@ function App() {
                 <strong>{matrixResult.groups.length}</strong>
                 <span>{displayColumnName(clusterColumn)}</span>
               </div>
-              <p>Dot color shows scaled mean expression. Dot size shows the fraction of cells expressing each gene in each group.</p>
+              <p>Dot color shows relative mean expression across the current plot. Dot size shows the fraction of cells expressing each gene in each group.</p>
               <div className="legend-gene-list">
                 {matrixResult.genes.map((gene) => (
                   <span key={gene}>{gene}</span>
@@ -992,6 +1002,54 @@ function App() {
       </section>
     </main>
   );
+}
+
+function StudyListPage({ studies = STUDIES }) {
+  return (
+    <main className="study-list-shell">
+      <header className="study-list-header">
+        <div>
+          <p className="eyebrow">Single Cell Portal</p>
+          <h1>Studies</h1>
+          <p>Choose a processed study to inspect embeddings, annotations, genes, and expression summaries.</p>
+        </div>
+      </header>
+
+      <section className="study-browser" aria-label="Available studies">
+        <div className="study-browser-heading">
+          <span>{studies.length.toLocaleString()} study</span>
+          <strong>Available datasets</strong>
+        </div>
+        <div className="study-list">
+          {studies.map((studyItem) => (
+            <a key={studyItem.id} className="study-row" href={`/study/${studyItem.id}?tab=scatter`}>
+              <div>
+                <strong>{studyItem.title}</strong>
+                <span>{studyItem.description}</span>
+              </div>
+              <label>{studyItem.species}</label>
+              <label>{studyItem.tissue}</label>
+              <em>{studyItem.status}</em>
+            </a>
+          ))}
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function App() {
+  const pathname = window.location.pathname.replace(/\/+$/, "");
+  const query = new URLSearchParams(window.location.search);
+  const requestedStudy = STUDIES.find((studyItem) => pathname === `/study/${studyItem.id}`);
+  const legacyExplorerUrl =
+    pathname === "" && (query.has("tab") || query.has("genes") || query.has("gene") || query.has("annotation"));
+
+  if (requestedStudy || legacyExplorerUrl) {
+    return <StudyExplorer studyConfig={requestedStudy ?? STUDIES[0]} />;
+  }
+
+  return <StudyListPage studies={STUDIES} />;
 }
 
 createRoot(document.getElementById("root")).render(<App />);
