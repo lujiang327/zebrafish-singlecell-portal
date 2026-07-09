@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import Plotly from "plotly.js-dist-min";
-import { Download, Dna, Eye, EyeOff, Link, Loader2, RefreshCcw, Search } from "lucide-react";
+import { Download, Dna, Eye, EyeOff, Loader2, RefreshCcw, Search } from "lucide-react";
 import "./styles.css";
 
 const API_BASE =
@@ -118,36 +118,20 @@ function replaceActiveGeneToken(value, gene) {
   return value.replace(/([^,\s]*)$/, trimmedGene);
 }
 
-function clusterLabelTraces(clusterLabels) {
-  const x = clusterLabels.map((label) => label.x);
-  const y = clusterLabels.map((label) => label.y);
-  const labels = clusterLabels.map((label) => displayValue(label.cluster));
-  return [
-    {
-      type: "scatter",
-      name: "Cluster label outline",
-      showlegend: false,
-      mode: "text",
-      x,
-      y,
-      text: labels,
-      hoverinfo: "skip",
-      textposition: "middle center",
-      textfont: { color: "#ffffff", size: 23, family: "Arial Black, Inter, sans-serif" },
-    },
-    {
-      type: "scatter",
-      name: "Cluster labels",
-      showlegend: false,
-      mode: "text",
-      x,
-      y,
-      text: labels,
-      hoverinfo: "skip",
-      textposition: "middle center",
-      textfont: { color: "#dc2626", size: 16, family: "Arial Black, Inter, sans-serif" },
-    },
-  ];
+function clusterLabelAnnotations(clusterLabels) {
+  return clusterLabels.map((label) => ({
+    x: label.x,
+    y: label.y,
+    text: displayValue(label.cluster),
+    showarrow: false,
+    xanchor: "center",
+    yanchor: "middle",
+    bgcolor: "rgba(255, 255, 255, 0.86)",
+    bordercolor: "rgba(127, 29, 29, 0.7)",
+    borderpad: 2,
+    font: { color: "#dc2626", size: 14, family: "Arial Black, Inter, sans-serif" },
+    captureevents: false,
+  }));
 }
 
 function dotSizeFromPercent(value) {
@@ -389,10 +373,6 @@ function App() {
         },
       ];
 
-      if (showClusterLabels && clusterLabels.length > 0) {
-        traces.push(...clusterLabelTraces(clusterLabels));
-      }
-
       return traces;
     }
 
@@ -414,10 +394,6 @@ function App() {
         },
       },
     ];
-
-    if (showClusterLabels && clusterLabels.length > 0) {
-      traces.push(...clusterLabelTraces(clusterLabels));
-    }
 
     return traces;
   }, [cells, colorBy, geneResult, clusterLabels, pointSize, colorMap, showClusterLabels]);
@@ -451,6 +427,7 @@ function App() {
       dragmode: "lasso",
       hovermode: "closest",
       showlegend: false,
+      annotations: showClusterLabels ? clusterLabelAnnotations(clusterLabels) : [],
     };
 
     const config = {
@@ -461,7 +438,7 @@ function App() {
     };
 
     Plotly.react(plotRef.current, plotData, layout, config);
-  }, [cells.length, plotData]);
+  }, [cells.length, plotData, showClusterLabels, clusterLabels]);
 
   useEffect(() => {
     if (!dotplotRef.current) return;
@@ -626,6 +603,14 @@ function App() {
 
   function clearFilters() {
     setSelectedAnnotationValues([]);
+    setGeneQuery("");
+    setPendingGene("");
+    setGeneOptions([]);
+    setGeneResult(null);
+    setDotplotResult(null);
+    setMatrixResult(null);
+    setActiveTab("scatter");
+    setError("");
   }
 
   function activePlotNode() {
@@ -647,14 +632,6 @@ function App() {
       if (current.includes(value)) return current.filter((item) => item !== value);
       return [...current.filter((item) => item !== "__none__"), value];
     });
-  }
-
-  async function shareView() {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-    } catch {
-      window.prompt("Copy this view URL", window.location.href);
-    }
   }
 
   if (loading) {
@@ -838,11 +815,6 @@ function App() {
             Download plot
           </button>
         </div>
-
-        <button type="button" className="clear-button" onClick={shareView}>
-          <Link size={16} />
-          Share view
-        </button>
 
         <button type="button" className="clear-button" onClick={clearFilters}>
           Clear filters
