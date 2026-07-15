@@ -11,6 +11,9 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://127.0.0.1}
     volumes:
       - ${H5AD_PATH:-./annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad}:/app/annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad:ro,Z
+      - ${AC_H5AD_PATH:-./AC_subtypes_reproduced.h5ad}:/app/AC_subtypes_reproduced.h5ad:ro,Z
+      - ${BC_H5AD_PATH:-./bc_9_sample_guca1b_gt2_mikiko_no_contam_26_28.h5ad}:/app/bc_9_sample_guca1b_gt2_mikiko_no_contam_26_28.h5ad:ro,Z
+      - ${RGC_H5AD_PATH:-./corrected_RGC_annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad}:/app/corrected_RGC_annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad:ro,Z
       - ./data/processed:/app/data/processed:ro,Z
     expose:
       - "8000"
@@ -49,5 +52,8 @@ services:
       H5AD_PATH: /app/annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad
     volumes:
       - ${H5AD_PATH:-./annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad}:/app/annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad:ro,Z
+      - ${AC_H5AD_PATH:-./AC_subtypes_reproduced.h5ad}:/app/AC_subtypes_reproduced.h5ad:ro,Z
+      - ${BC_H5AD_PATH:-./bc_9_sample_guca1b_gt2_mikiko_no_contam_26_28.h5ad}:/app/bc_9_sample_guca1b_gt2_mikiko_no_contam_26_28.h5ad:ro,Z
+      - ${RGC_H5AD_PATH:-./corrected_RGC_annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad}:/app/corrected_RGC_annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad:ro,Z
       - ./data/processed:/app/data/processed:Z
-    command: ["python", "backend/preprocess.py"]
+    command: ["python", "backend/preprocess.py", "--all"]

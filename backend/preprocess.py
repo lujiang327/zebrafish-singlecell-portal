@@ -14,6 +14,11 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_H5AD = ROOT / "annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad"
 DEFAULT_OUT = ROOT / "data" / "processed"
 
+try:
+    from backend.datasets import DATASETS, DEFAULT_DATASET_ID, public_dataset
+except ModuleNotFoundError:
+    from datasets import DATASETS, DEFAULT_DATASET_ID, public_dataset
+
 
 def _json_safe(value: Any) -> Any:
     if pd.isna(value):
@@ -41,7 +46,7 @@ def _embedding_key(obsm_keys: list[str]) -> str:
     return obsm_keys[0]
 
 
-def preprocess(h5ad_path: Path, out_dir: Path) -> None:
+def preprocess(h5ad_path: Path, out_dir: Path, dataset: dict[str, Any] | None = None) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
     adata = ad.read_h5ad(h5ad_path, backed="r")
 
@@ -92,29 +97,68 @@ def preprocess(h5ad_path: Path, out_dir: Path) -> None:
     genes = pd.Index(adata.var_names.astype(str)).drop_duplicates().tolist()
     (out_dir / "genes.json").write_text(json.dumps(genes), encoding="utf-8")
 
+    public = public_dataset(dataset) if dataset else None
     study = {
+        "id": public["id"] if public else "custom",
+        "label": public["label"] if public else h5ad_path.stem,
         "title": "Zebrafish Single-Cell Portal",
-        "description": "Interactive viewer for the annotated zebrafish single-cell dataset.",
+        "description": public["description"] if public else "Interactive viewer for the annotated zebrafish single-cell dataset.",
         "source_file": h5ad_path.name,
         "n_cells": int(adata.n_obs),
         "n_genes": int(adata.n_vars),
         "embedding": embedding_name,
         "metadata_columns": metadata_columns,
         "obsm_keys": list(map(str, adata.obsm.keys())),
+        "default_color": public.get("default_color") if public else None,
+        "default_cluster": public.get("default_cluster") if public else None,
     }
     (out_dir / "study.json").write_text(json.dumps(study, indent=2), encoding="utf-8")
 
     print(f"Wrote {out_dir / 'study.json'}")
     print(f"Wrote {out_dir / 'cells.parquet'}")
     print(f"Wrote {out_dir / 'genes.json'}")
+    return study
+
+
+def preprocess_all(out_dir: Path) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    dataset_summaries: list[dict[str, Any]] = []
+    for dataset in DATASETS:
+        dataset_out = out_dir / dataset["id"]
+        summary = preprocess(Path(dataset["h5ad"]).resolve(), dataset_out.resolve(), dataset)
+        dataset_summaries.append(
+            {
+                "id": summary["id"],
+                "label": summary["label"],
+                "description": summary["description"],
+                "source_file": summary["source_file"],
+                "n_cells": summary["n_cells"],
+                "n_genes": summary["n_genes"],
+                "default_color": summary.get("default_color"),
+                "default_cluster": summary.get("default_cluster"),
+            }
+        )
+
+    index = {
+        "title": "Zebrafish Single-Cell Portal",
+        "description": "Interactive viewer for zebrafish full cell types and subtype-focused datasets.",
+        "default_dataset": DEFAULT_DATASET_ID,
+        "datasets": dataset_summaries,
+    }
+    (out_dir / "study.json").write_text(json.dumps(index, indent=2), encoding="utf-8")
+    print(f"Wrote {out_dir / 'study.json'}")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Preprocess an h5ad file for the web portal.")
+    parser = argparse.ArgumentParser(description="Preprocess h5ad files for the web portal.")
     parser.add_argument("--h5ad", type=Path, default=DEFAULT_H5AD)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    parser.add_argument("--all", action="store_true", help="Preprocess all registered study datasets.")
     args = parser.parse_args()
-    preprocess(args.h5ad.resolve(), args.out.resolve())
+    if args.all:
+        preprocess_all(args.out.resolve())
+    else:
+        preprocess(args.h5ad.resolve(), args.out.resolve())
 
 
 if __name__ == "__main__":

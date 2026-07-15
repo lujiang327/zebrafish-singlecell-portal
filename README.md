@@ -1,18 +1,21 @@
 # Zebrafish Single-Cell Portal
 
-A lightweight web portal for interactively exploring the zebrafish single-cell `.h5ad` dataset in this repository.
+A lightweight web portal for interactively exploring zebrafish full cell type and subtype `.h5ad` datasets in this repository.
 
 The scaffold has two parts:
 
-- `backend/`: FastAPI service for study metadata, cell coordinates, annotations, gene lookup, and `.h5ad` download.
+- `backend/`: FastAPI service for study metadata, cell coordinates, annotations, gene lookup, and expression summaries.
 - `frontend/`: React/Vite app with an interactive WebGL UMAP scatter plot.
 
 ## Data
 
-The current source dataset is expected at:
+The current source datasets are expected at:
 
 ```text
 annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad
+AC_subtypes_reproduced.h5ad
+bc_9_sample_guca1b_gt2_mikiko_no_contam_26_28.h5ad
+corrected_RGC_annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad
 ```
 
 Large `.h5ad` files are ignored by git in this scaffold.
@@ -50,15 +53,17 @@ Run this once before starting the API:
 
 ```bash
 conda activate zebrafish-singlecell-portal
-python backend/preprocess.py
+python backend/preprocess.py --all
 ```
 
 This writes:
 
 ```text
 data/processed/study.json
-data/processed/cells.parquet
-data/processed/genes.json
+data/processed/full-cell-types/{study.json,cells.parquet,genes.json}
+data/processed/ac-subtypes/{study.json,cells.parquet,genes.json}
+data/processed/bc-subtypes/{study.json,cells.parquet,genes.json}
+data/processed/rgc-subtypes/{study.json,cells.parquet,genes.json}
 ```
 
 The preprocessing script chooses the first available embedding from this order:
@@ -134,10 +139,10 @@ This project includes a Docker Compose setup for production deployment on Linux 
 ```text
 frontend container: Nginx serves the built React app and proxies /api
 backend container: FastAPI serves data and expression endpoints
-host-mounted data: large .h5ad file plus generated data/processed files
+host-mounted data: large .h5ad files plus generated data/processed files
 ```
 
-The large `.h5ad` file is intentionally not copied into Docker images. Keep it on the server and mount it into the backend container.
+The large `.h5ad` files are intentionally not copied into Docker images. Keep them on the server and mount them into the backend container.
 
 Quick start on the server:
 
@@ -169,7 +174,6 @@ GET /api/cells?color=sample&filter_column=sample&filter_value=Zebra
 GET /api/genes?q=pax
 GET /api/expression/{gene}
 GET /api/dotplot/{gene}?group_by=leiden
-GET /api/download/h5ad
 ```
 
 ## Explorer Features

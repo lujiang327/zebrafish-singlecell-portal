@@ -1,0 +1,442 @@
+{
+  "id": "full-cell-types",
+  "label": "Full Cell Types",
+  "title": "Zebrafish Single-Cell Portal",
+  "description": "All annotated zebrafish cells after doublet removal.",
+  "source_file": "annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad",
+  "n_cells": 160875,
+  "n_genes": 24597,
+  "embedding": "X_umap",
+  "metadata_columns": [
+    {
+      "name": "sample",
+      "kind": "categorical",
+      "n_unique": 8,
+      "top_values": [
+        {
+          "value": "Zebra",
+          "count": 26638
+        },
+        {
+          "value": "TH44",
+          "count": 24387
+        },
+        {
+          "value": "TH57",
+          "count": 24297
+        },
+        {
+          "value": "TH54",
+          "count": 19750
+        },
+        {
+          "value": "TH55",
+          "count": 18787
+        },
+        {
+          "value": "TH71",
+          "count": 18015
+        },
+        {
+          "value": "TH56",
+          "count": 17260
+        },
+        {
+          "value": "TH115",
+          "count": 11741
+        }
+      ]
+    },
+    {
+      "name": "n_genes_by_counts",
+      "kind": "numeric",
+      "n_unique": 4845,
+      "min": 801,
+      "max": 5998
+    },
+    {
+      "name": "log1p_n_genes_by_counts",
+      "kind": "numeric",
+      "n_unique": 4845,
+      "min": 6.687108607866515,
+      "max": 8.699348067653093
+    },
+    {
+      "name": "total_counts",
+      "kind": "numeric",
+      "n_unique": 15936,
+      "min": 1201.0,
+      "max": 29962.0
+    },
+    {
+      "name": "log1p_total_counts",
+      "kind": "numeric",
+      "n_unique": 15936,
+      "min": 7.091742038726807,
+      "max": 10.307718276977539
+    },
+    {
+      "name": "pct_counts_in_top_50_genes",
+      "kind": "numeric",
+      "n_unique": 139550,
+      "min": 10.26774595267746,
+      "max": 87.99522014891075
+    },
+    {
+      "name": "pct_counts_in_top_100_genes",
+      "kind": "numeric",
+      "n_unique": 141207,
+      "min": 15.846824408468244,
+      "max": 89.84281643533413
+    },
+    {
+      "name": "pct_counts_in_top_200_genes",
+      "kind": "numeric",
+      "n_unique": 142702,
+      "min": 23.711083437110833,
+      "max": 91.93859729754573
+    },
+    {
+      "name": "pct_counts_in_top_500_genes",
+      "kind": "numeric",
+      "n_unique": 142977,
+      "min": 38.04916732751784,
+      "max": 95.9411023927153
+    },
+    {
+      "name": "total_counts_mt",
+      "kind": "numeric",
+      "n_unique": 1813,
+      "min": 0.0,
+      "max": 3257.0
+    },
+    {
+      "name": "log1p_total_counts_mt",
+      "kind": "numeric",
+      "n_unique": 1813,
+      "min": 0.0,
+      "max": 8.088869094848633
+    },
+    {
+      "name": "pct_counts_mt",
+      "kind": "numeric",
+      "n_unique": 134147,
+      "min": 0.0,
+      "max": 24.988845825195312
+    },
+    {
+      "name": "n_genes",
+      "kind": "numeric",
+      "n_unique": 4845,
+      "min": 801,
+      "max": 5998
+    },
+    {
+      "name": "renamed_samples",
+      "kind": "categorical",
+      "n_unique": 3,
+      "top_values": [
+        {
+          "value": "Control",
+          "count": 134237
+        },
+        {
+          "value": "NMDA",
+          "count": 15424
+        },
+        {
+          "value": "LD",
+          "count": 11214
+        }
+      ]
+    },
+    {
+      "name": "predicted_doublets",
+      "kind": "numeric",
+      "n_unique": 1,
+      "min": "False",
+      "max": "False"
+    },
+    {
+      "name": "leiden",
+      "kind": "categorical",
+      "n_unique": 92,
+      "top_values": [
+        {
+          "value": "0",
+          "count": 6775
+        },
+        {
+          "value": "1",
+          "count": 5226
+        },
+        {
+          "value": "2",
+          "count": 5043
+        },
+        {
+          "value": "3",
+          "count": 4934
+        },
+        {
+          "value": "4",
+          "count": 4914
+        },
+        {
+          "value": "5",
+          "count": 4912
+        },
+        {
+          "value": "6",
+          "count": 4594
+        },
+        {
+          "value": "7",
+          "count": 4329
+        },
+        {
+          "value": "8",
+          "count": 4272
+        },
+        {
+          "value": "9",
+          "count": 4047
+        },
+        {
+          "value": "10",
+          "count": 4036
+        },
+        {
+          "value": "11",
+          "count": 3803
+        },
+        {
+          "value": "12",
+          "count": 3652
+        },
+        {
+          "value": "13",
+          "count": 3358
+        },
+        {
+          "value": "14",
+          "count": 3249
+        },
+        {
+          "value": "15",
+          "count": 3046
+        },
+        {
+          "value": "16",
+          "count": 2899
+        },
+        {
+          "value": "17",
+          "count": 2856
+        },
+        {
+          "value": "18",
+          "count": 2839
+        },
+        {
+          "value": "19",
+          "count": 2782
+        },
+        {
+          "value": "20",
+          "count": 2615
+        },
+        {
+          "value": "21",
+          "count": 2599
+        },
+        {
+          "value": "22",
+          "count": 2357
+        },
+        {
+          "value": "23",
+          "count": 2218
+        },
+        {
+          "value": "24",
+          "count": 2133
+        },
+        {
+          "value": "25",
+          "count": 2096
+        },
+        {
+          "value": "26",
+          "count": 1963
+        },
+        {
+          "value": "27",
+          "count": 1899
+        },
+        {
+          "value": "28",
+          "count": 1874
+        },
+        {
+          "value": "29",
+          "count": 1874
+        },
+        {
+          "value": "30",
+          "count": 1846
+        },
+        {
+          "value": "31",
+          "count": 1802
+        },
+        {
+          "value": "32",
+          "count": 1801
+        },
+        {
+          "value": "33",
+          "count": 1797
+        },
+        {
+          "value": "34",
+          "count": 1795
+        },
+        {
+          "value": "35",
+          "count": 1764
+        },
+        {
+          "value": "36",
+          "count": 1736
+        },
+        {
+          "value": "37",
+          "count": 1699
+        },
+        {
+          "value": "38",
+          "count": 1653
+        },
+        {
+          "value": "39",
+          "count": 1642
+        },
+        {
+          "value": "40",
+          "count": 1559
+        },
+        {
+          "value": "41",
+          "count": 1543
+        },
+        {
+          "value": "42",
+          "count": 1536
+        },
+        {
+          "value": "43",
+          "count": 1474
+        },
+        {
+          "value": "44",
+          "count": 1460
+        },
+        {
+          "value": "45",
+          "count": 1373
+        },
+        {
+          "value": "46",
+          "count": 1347
+        },
+        {
+          "value": "47",
+          "count": 1319
+        },
+        {
+          "value": "48",
+          "count": 1297
+        },
+        {
+          "value": "49",
+          "count": 1247
+        }
+      ]
+    },
+    {
+      "name": "celltype",
+      "kind": "categorical",
+      "n_unique": 15,
+      "top_values": [
+        {
+          "value": "BC",
+          "count": 64278
+        },
+        {
+          "value": "HC",
+          "count": 19751
+        },
+        {
+          "value": "MG",
+          "count": 18153
+        },
+        {
+          "value": "AC",
+          "count": 15517
+        },
+        {
+          "value": "Cones",
+          "count": 10923
+        },
+        {
+          "value": "Rod",
+          "count": 9390
+        },
+        {
+          "value": "MGPC",
+          "count": 5531
+        },
+        {
+          "value": "PR precursors",
+          "count": 4934
+        },
+        {
+          "value": "RGC",
+          "count": 4912
+        },
+        {
+          "value": "Microglia_ImmuneCells",
+          "count": 2385
+        },
+        {
+          "value": "RPE",
+          "count": 1802
+        },
+        {
+          "value": "Perycites",
+          "count": 1474
+        },
+        {
+          "value": "Endothelial",
+          "count": 762
+        },
+        {
+          "value": "Oligodenrocyte",
+          "count": 700
+        },
+        {
+          "value": "Melanocyte",
+          "count": 363
+        }
+      ]
+    }
+  ],
+  "obsm_keys": [
+    "X_pca",
+    "X_pca_harmony",
+    "X_umap"
+  ],
+  "default_color": "renamed_samples",
+  "default_cluster": "celltype"
+}

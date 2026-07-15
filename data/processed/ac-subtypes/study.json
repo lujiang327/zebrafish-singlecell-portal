@@ -1,0 +1,953 @@
+{
+  "id": "ac-subtypes",
+  "label": "AC Subtypes",
+  "title": "Zebrafish Single-Cell Portal",
+  "description": "Amacrine cell subtype-focused zebrafish dataset.",
+  "source_file": "AC_subtypes_reproduced.h5ad",
+  "n_cells": 11138,
+  "n_genes": 24597,
+  "embedding": "X_umap",
+  "metadata_columns": [
+    {
+      "name": "sample",
+      "kind": "categorical",
+      "n_unique": 8,
+      "top_values": [
+        {
+          "value": "TH57",
+          "count": 1899
+        },
+        {
+          "value": "TH71",
+          "count": 1760
+        },
+        {
+          "value": "TH54",
+          "count": 1466
+        },
+        {
+          "value": "TH55",
+          "count": 1442
+        },
+        {
+          "value": "TH44",
+          "count": 1437
+        },
+        {
+          "value": "TH56",
+          "count": 1383
+        },
+        {
+          "value": "Zebra",
+          "count": 1103
+        },
+        {
+          "value": "TH115",
+          "count": 648
+        }
+      ]
+    },
+    {
+      "name": "n_genes_by_counts",
+      "kind": "numeric",
+      "n_unique": 3293,
+      "min": 1189,
+      "max": 5981
+    },
+    {
+      "name": "log1p_n_genes_by_counts",
+      "kind": "numeric",
+      "n_unique": 3293,
+      "min": 7.0817085861055755,
+      "max": 8.696510239189893
+    },
+    {
+      "name": "total_counts",
+      "kind": "numeric",
+      "n_unique": 6393,
+      "min": 1697.0,
+      "max": 28436.0
+    },
+    {
+      "name": "log1p_total_counts",
+      "kind": "numeric",
+      "n_unique": 6393,
+      "min": 7.437206268310547,
+      "max": 10.255446434020996
+    },
+    {
+      "name": "pct_counts_in_top_50_genes",
+      "kind": "numeric",
+      "n_unique": 11014,
+      "min": 10.381548670198534,
+      "max": 52.9777724087944
+    },
+    {
+      "name": "pct_counts_in_top_100_genes",
+      "kind": "numeric",
+      "n_unique": 11029,
+      "min": 15.877347888906726,
+      "max": 58.00314085527906
+    },
+    {
+      "name": "pct_counts_in_top_200_genes",
+      "kind": "numeric",
+      "n_unique": 11053,
+      "min": 23.893615882699205,
+      "max": 64.45397438994927
+    },
+    {
+      "name": "pct_counts_in_top_500_genes",
+      "kind": "numeric",
+      "n_unique": 11057,
+      "min": 39.068005637773076,
+      "max": 74.46243053877748
+    },
+    {
+      "name": "total_counts_mt",
+      "kind": "numeric",
+      "n_unique": 936,
+      "min": 0.0,
+      "max": 2882.0
+    },
+    {
+      "name": "log1p_total_counts_mt",
+      "kind": "numeric",
+      "n_unique": 936,
+      "min": 0.0,
+      "max": 7.966586589813232
+    },
+    {
+      "name": "pct_counts_mt",
+      "kind": "numeric",
+      "n_unique": 10976,
+      "min": 0.0,
+      "max": 23.67452621459961
+    },
+    {
+      "name": "n_genes",
+      "kind": "numeric",
+      "n_unique": 3293,
+      "min": 1189,
+      "max": 5981
+    },
+    {
+      "name": "renamed_samples",
+      "kind": "categorical",
+      "n_unique": 3,
+      "top_values": [
+        {
+          "value": "Control",
+          "count": 10035
+        },
+        {
+          "value": "NMDA",
+          "count": 867
+        },
+        {
+          "value": "LD",
+          "count": 236
+        }
+      ]
+    },
+    {
+      "name": "predicted_doublets",
+      "kind": "numeric",
+      "n_unique": 1,
+      "min": "False",
+      "max": "False"
+    },
+    {
+      "name": "leiden",
+      "kind": "categorical",
+      "n_unique": 46,
+      "top_values": [
+        {
+          "value": "0",
+          "count": 835
+        },
+        {
+          "value": "1",
+          "count": 807
+        },
+        {
+          "value": "2",
+          "count": 794
+        },
+        {
+          "value": "3",
+          "count": 456
+        },
+        {
+          "value": "5",
+          "count": 435
+        },
+        {
+          "value": "4",
+          "count": 435
+        },
+        {
+          "value": "6",
+          "count": 402
+        },
+        {
+          "value": "7",
+          "count": 400
+        },
+        {
+          "value": "8",
+          "count": 381
+        },
+        {
+          "value": "9",
+          "count": 364
+        },
+        {
+          "value": "10",
+          "count": 351
+        },
+        {
+          "value": "12",
+          "count": 268
+        },
+        {
+          "value": "13",
+          "count": 266
+        },
+        {
+          "value": "14",
+          "count": 259
+        },
+        {
+          "value": "15",
+          "count": 242
+        },
+        {
+          "value": "16",
+          "count": 240
+        },
+        {
+          "value": "17",
+          "count": 237
+        },
+        {
+          "value": "18",
+          "count": 237
+        },
+        {
+          "value": "19",
+          "count": 231
+        },
+        {
+          "value": "20",
+          "count": 210
+        },
+        {
+          "value": "21",
+          "count": 207
+        },
+        {
+          "value": "22",
+          "count": 203
+        },
+        {
+          "value": "23",
+          "count": 202
+        },
+        {
+          "value": "24",
+          "count": 192
+        },
+        {
+          "value": "25",
+          "count": 182
+        },
+        {
+          "value": "26",
+          "count": 182
+        },
+        {
+          "value": "27",
+          "count": 179
+        },
+        {
+          "value": "28",
+          "count": 177
+        },
+        {
+          "value": "29",
+          "count": 170
+        },
+        {
+          "value": "30",
+          "count": 167
+        },
+        {
+          "value": "31",
+          "count": 164
+        },
+        {
+          "value": "32",
+          "count": 147
+        },
+        {
+          "value": "33",
+          "count": 132
+        },
+        {
+          "value": "34",
+          "count": 107
+        },
+        {
+          "value": "35",
+          "count": 102
+        },
+        {
+          "value": "36",
+          "count": 99
+        },
+        {
+          "value": "37",
+          "count": 96
+        },
+        {
+          "value": "38",
+          "count": 93
+        },
+        {
+          "value": "39",
+          "count": 90
+        },
+        {
+          "value": "40",
+          "count": 79
+        },
+        {
+          "value": "41",
+          "count": 78
+        },
+        {
+          "value": "42",
+          "count": 56
+        },
+        {
+          "value": "43",
+          "count": 51
+        },
+        {
+          "value": "44",
+          "count": 51
+        },
+        {
+          "value": "45",
+          "count": 43
+        },
+        {
+          "value": "46",
+          "count": 39
+        }
+      ]
+    },
+    {
+      "name": "celltype",
+      "kind": "categorical",
+      "n_unique": 1,
+      "top_values": [
+        {
+          "value": "AC",
+          "count": 11138
+        }
+      ]
+    },
+    {
+      "name": "n_counts",
+      "kind": "numeric",
+      "n_unique": 11136,
+      "min": 1.279275894165039,
+      "max": 5524.30419921875
+    },
+    {
+      "name": "original_leiden",
+      "kind": "categorical",
+      "n_unique": 46,
+      "top_values": [
+        {
+          "value": "0",
+          "count": 835
+        },
+        {
+          "value": "1",
+          "count": 807
+        },
+        {
+          "value": "2",
+          "count": 794
+        },
+        {
+          "value": "3",
+          "count": 456
+        },
+        {
+          "value": "5",
+          "count": 435
+        },
+        {
+          "value": "4",
+          "count": 435
+        },
+        {
+          "value": "6",
+          "count": 402
+        },
+        {
+          "value": "7",
+          "count": 400
+        },
+        {
+          "value": "8",
+          "count": 381
+        },
+        {
+          "value": "9",
+          "count": 364
+        },
+        {
+          "value": "10",
+          "count": 351
+        },
+        {
+          "value": "12",
+          "count": 268
+        },
+        {
+          "value": "13",
+          "count": 266
+        },
+        {
+          "value": "14",
+          "count": 259
+        },
+        {
+          "value": "15",
+          "count": 242
+        },
+        {
+          "value": "16",
+          "count": 240
+        },
+        {
+          "value": "17",
+          "count": 237
+        },
+        {
+          "value": "18",
+          "count": 237
+        },
+        {
+          "value": "19",
+          "count": 231
+        },
+        {
+          "value": "20",
+          "count": 210
+        },
+        {
+          "value": "21",
+          "count": 207
+        },
+        {
+          "value": "22",
+          "count": 203
+        },
+        {
+          "value": "23",
+          "count": 202
+        },
+        {
+          "value": "24",
+          "count": 192
+        },
+        {
+          "value": "25",
+          "count": 182
+        },
+        {
+          "value": "26",
+          "count": 182
+        },
+        {
+          "value": "27",
+          "count": 179
+        },
+        {
+          "value": "28",
+          "count": 177
+        },
+        {
+          "value": "29",
+          "count": 170
+        },
+        {
+          "value": "30",
+          "count": 167
+        },
+        {
+          "value": "31",
+          "count": 164
+        },
+        {
+          "value": "32",
+          "count": 147
+        },
+        {
+          "value": "33",
+          "count": 132
+        },
+        {
+          "value": "34",
+          "count": 107
+        },
+        {
+          "value": "35",
+          "count": 102
+        },
+        {
+          "value": "36",
+          "count": 99
+        },
+        {
+          "value": "37",
+          "count": 96
+        },
+        {
+          "value": "38",
+          "count": 93
+        },
+        {
+          "value": "39",
+          "count": 90
+        },
+        {
+          "value": "40",
+          "count": 79
+        },
+        {
+          "value": "41",
+          "count": 78
+        },
+        {
+          "value": "42",
+          "count": 56
+        },
+        {
+          "value": "43",
+          "count": 51
+        },
+        {
+          "value": "44",
+          "count": 51
+        },
+        {
+          "value": "45",
+          "count": 43
+        },
+        {
+          "value": "46",
+          "count": 39
+        }
+      ]
+    },
+    {
+      "name": "combined_leiden",
+      "kind": "categorical",
+      "n_unique": 45,
+      "top_values": [
+        {
+          "value": "1",
+          "count": 850
+        },
+        {
+          "value": "0",
+          "count": 835
+        },
+        {
+          "value": "2",
+          "count": 794
+        },
+        {
+          "value": "3",
+          "count": 456
+        },
+        {
+          "value": "5",
+          "count": 435
+        },
+        {
+          "value": "4",
+          "count": 435
+        },
+        {
+          "value": "6",
+          "count": 402
+        },
+        {
+          "value": "7",
+          "count": 400
+        },
+        {
+          "value": "8",
+          "count": 381
+        },
+        {
+          "value": "9",
+          "count": 364
+        },
+        {
+          "value": "10",
+          "count": 351
+        },
+        {
+          "value": "11",
+          "count": 268
+        },
+        {
+          "value": "12",
+          "count": 266
+        },
+        {
+          "value": "13",
+          "count": 259
+        },
+        {
+          "value": "14",
+          "count": 242
+        },
+        {
+          "value": "15",
+          "count": 240
+        },
+        {
+          "value": "17",
+          "count": 237
+        },
+        {
+          "value": "16",
+          "count": 237
+        },
+        {
+          "value": "18",
+          "count": 231
+        },
+        {
+          "value": "19",
+          "count": 210
+        },
+        {
+          "value": "20",
+          "count": 207
+        },
+        {
+          "value": "21",
+          "count": 203
+        },
+        {
+          "value": "22",
+          "count": 202
+        },
+        {
+          "value": "23",
+          "count": 192
+        },
+        {
+          "value": "25",
+          "count": 182
+        },
+        {
+          "value": "24",
+          "count": 182
+        },
+        {
+          "value": "26",
+          "count": 179
+        },
+        {
+          "value": "27",
+          "count": 177
+        },
+        {
+          "value": "28",
+          "count": 170
+        },
+        {
+          "value": "29",
+          "count": 167
+        },
+        {
+          "value": "30",
+          "count": 164
+        },
+        {
+          "value": "31",
+          "count": 147
+        },
+        {
+          "value": "32",
+          "count": 132
+        },
+        {
+          "value": "33",
+          "count": 107
+        },
+        {
+          "value": "34",
+          "count": 102
+        },
+        {
+          "value": "35",
+          "count": 99
+        },
+        {
+          "value": "36",
+          "count": 96
+        },
+        {
+          "value": "37",
+          "count": 93
+        },
+        {
+          "value": "38",
+          "count": 90
+        },
+        {
+          "value": "39",
+          "count": 79
+        },
+        {
+          "value": "40",
+          "count": 78
+        },
+        {
+          "value": "41",
+          "count": 56
+        },
+        {
+          "value": "42",
+          "count": 51
+        },
+        {
+          "value": "43",
+          "count": 51
+        },
+        {
+          "value": "44",
+          "count": 39
+        }
+      ]
+    },
+    {
+      "name": "ac_subtype_cluster",
+      "kind": "categorical",
+      "n_unique": 45,
+      "top_values": [
+        {
+          "value": "1",
+          "count": 850
+        },
+        {
+          "value": "0",
+          "count": 835
+        },
+        {
+          "value": "2",
+          "count": 794
+        },
+        {
+          "value": "3",
+          "count": 456
+        },
+        {
+          "value": "5",
+          "count": 435
+        },
+        {
+          "value": "4",
+          "count": 435
+        },
+        {
+          "value": "6",
+          "count": 402
+        },
+        {
+          "value": "7",
+          "count": 400
+        },
+        {
+          "value": "8",
+          "count": 381
+        },
+        {
+          "value": "9",
+          "count": 364
+        },
+        {
+          "value": "10",
+          "count": 351
+        },
+        {
+          "value": "11",
+          "count": 268
+        },
+        {
+          "value": "12",
+          "count": 266
+        },
+        {
+          "value": "13",
+          "count": 259
+        },
+        {
+          "value": "14",
+          "count": 242
+        },
+        {
+          "value": "15",
+          "count": 240
+        },
+        {
+          "value": "17",
+          "count": 237
+        },
+        {
+          "value": "16",
+          "count": 237
+        },
+        {
+          "value": "18",
+          "count": 231
+        },
+        {
+          "value": "19",
+          "count": 210
+        },
+        {
+          "value": "20",
+          "count": 207
+        },
+        {
+          "value": "21",
+          "count": 203
+        },
+        {
+          "value": "22",
+          "count": 202
+        },
+        {
+          "value": "23",
+          "count": 192
+        },
+        {
+          "value": "25",
+          "count": 182
+        },
+        {
+          "value": "24",
+          "count": 182
+        },
+        {
+          "value": "26",
+          "count": 179
+        },
+        {
+          "value": "27",
+          "count": 177
+        },
+        {
+          "value": "28",
+          "count": 170
+        },
+        {
+          "value": "29",
+          "count": 167
+        },
+        {
+          "value": "30",
+          "count": 164
+        },
+        {
+          "value": "31",
+          "count": 147
+        },
+        {
+          "value": "32",
+          "count": 132
+        },
+        {
+          "value": "33",
+          "count": 107
+        },
+        {
+          "value": "34",
+          "count": 102
+        },
+        {
+          "value": "35",
+          "count": 99
+        },
+        {
+          "value": "36",
+          "count": 96
+        },
+        {
+          "value": "37",
+          "count": 93
+        },
+        {
+          "value": "38",
+          "count": 90
+        },
+        {
+          "value": "39",
+          "count": 79
+        },
+        {
+          "value": "40",
+          "count": 78
+        },
+        {
+          "value": "41",
+          "count": 56
+        },
+        {
+          "value": "42",
+          "count": 51
+        },
+        {
+          "value": "43",
+          "count": 51
+        },
+        {
+          "value": "44",
+          "count": 39
+        }
+      ]
+    },
+    {
+      "name": "major_celltype",
+      "kind": "categorical",
+      "n_unique": 1,
+      "top_values": [
+        {
+          "value": "AC",
+          "count": 11138
+        }
+      ]
+    }
+  ],
+  "obsm_keys": [
+    "X_pca",
+    "X_pca_harmony",
+    "X_umap"
+  ],
+  "default_color": "renamed_samples",
+  "default_cluster": "ac_subtype_cluster"
+}
