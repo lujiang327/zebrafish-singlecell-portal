@@ -13,6 +13,8 @@ DATASETS: list[dict[str, Any]] = [
         "h5ad": ROOT / "annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad",
         "default_color": "renamed_samples",
         "default_cluster": "celltype",
+        "expression_label": "Log1p-normalized expression",
+        "expression_description": "Library-size normalized to a target sum of 10,000 per cell, then transformed with natural log1p.",
     },
     {
         "id": "ac-subtypes",
@@ -20,7 +22,9 @@ DATASETS: list[dict[str, Any]] = [
         "description": "Amacrine cell subtype-focused zebrafish dataset.",
         "h5ad": ROOT / "AC_subtypes_reproduced.h5ad",
         "default_color": "renamed_samples",
-        "default_cluster": "ac_subtype_cluster",
+        "default_cluster": "combined_leiden",
+        "expression_label": "Log1p-normalized expression",
+        "expression_description": "Library-size normalized to a target sum of approximately 5,439 per cell, then transformed with natural log1p.",
     },
     {
         "id": "bc-subtypes",
@@ -28,7 +32,9 @@ DATASETS: list[dict[str, Any]] = [
         "description": "Bipolar cell subtype-focused zebrafish dataset.",
         "h5ad": ROOT / "bc_9_sample_guca1b_gt2_mikiko_no_contam_26_28.h5ad",
         "default_color": "renamed_samples",
-        "default_cluster": "leiden_mikiko_merged",
+        "default_cluster": "leiden_no_contam_26_28",
+        "expression_label": "Log1p-normalized expression",
+        "expression_description": "Library-size normalized to a target sum of 10,000 per cell, then transformed with natural log1p.",
     },
     {
         "id": "rgc-subtypes",
@@ -37,6 +43,8 @@ DATASETS: list[dict[str, Any]] = [
         "h5ad": ROOT / "corrected_RGC_annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad",
         "default_color": "renamed_samples",
         "default_cluster": "celltype",
+        "expression_label": "Log1p-normalized expression",
+        "expression_description": "Library-size normalized to a target sum of approximately 5,704 per cell, then transformed with natural log1p.",
     },
 ]
 
@@ -56,4 +64,6 @@ def public_dataset(dataset: dict[str, Any]) -> dict[str, Any]:
         "source_file": Path(dataset["h5ad"]).name,
         "default_color": dataset.get("default_color"),
         "default_cluster": dataset.get("default_cluster"),
+        "expression_label": dataset.get("expression_label"),
+        "expression_description": dataset.get("expression_description"),
     }

@@ -55,6 +55,10 @@ def _study(dataset: str | None = None) -> dict[str, Any]:
     selected = dataset_for(dataset)
     _require_processed(selected["id"])
     payload = json.loads((_dataset_dir(selected["id"]) / "study.json").read_text(encoding="utf-8"))
+    payload["default_color"] = selected.get("default_color")
+    payload["default_cluster"] = selected.get("default_cluster")
+    payload["expression_label"] = selected.get("expression_label")
+    payload["expression_description"] = selected.get("expression_description")
     payload["default_dataset"] = DEFAULT_DATASET_ID
     payload["datasets"] = _datasets_summary()
     return payload

@@ -111,6 +111,8 @@ def preprocess(h5ad_path: Path, out_dir: Path, dataset: dict[str, Any] | None = 
         "obsm_keys": list(map(str, adata.obsm.keys())),
         "default_color": public.get("default_color") if public else None,
         "default_cluster": public.get("default_cluster") if public else None,
+        "expression_label": public.get("expression_label") if public else None,
+        "expression_description": public.get("expression_description") if public else None,
     }
     (out_dir / "study.json").write_text(json.dumps(study, indent=2), encoding="utf-8")
 

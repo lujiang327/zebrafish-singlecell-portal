@@ -42,6 +42,18 @@ const HIDDEN_CLUSTER_COLUMNS = new Set(["sample", "renamed_samples"]);
 const COLUMN_LABELS = {
   renamed_samples: "samples",
   leiden: "cell clusters",
+  combined_leiden: "cell clusters",
+  leiden_no_contam_26_28: "cell clusters",
+};
+const DATASET_COLUMN_OPTIONS = {
+  "ac-subtypes": {
+    color: new Set(["renamed_samples", "combined_leiden"]),
+    cluster: new Set(["combined_leiden"]),
+  },
+  "bc-subtypes": {
+    color: new Set(["renamed_samples", "leiden_no_contam_26_28"]),
+    cluster: new Set(["renamed_samples", "leiden_no_contam_26_28"]),
+  },
 };
 
 function titleCaseLabel(value) {
@@ -60,16 +72,22 @@ function displayValue(value) {
   return titleCaseLabel(value || "Unannotated");
 }
 
-function visibleColorColumns(columns) {
-  return columns.filter((column) => column.kind === "categorical" && !HIDDEN_COLOR_COLUMNS.has(column.name));
+function visibleColorColumns(columns, datasetId) {
+  const allowed = DATASET_COLUMN_OPTIONS[datasetId]?.color;
+  return columns.filter(
+    (column) => column.kind === "categorical" && (allowed ? allowed.has(column.name) : !HIDDEN_COLOR_COLUMNS.has(column.name)),
+  );
 }
 
-function visibleClusterColumns(columns) {
-  return columns.filter((column) => column.kind === "categorical" && !HIDDEN_CLUSTER_COLUMNS.has(column.name));
+function visibleClusterColumns(columns, datasetId) {
+  const allowed = DATASET_COLUMN_OPTIONS[datasetId]?.cluster;
+  return columns.filter(
+    (column) => column.kind === "categorical" && (allowed ? allowed.has(column.name) : !HIDDEN_CLUSTER_COLUMNS.has(column.name)),
+  );
 }
 
-function chooseDefaultColumn(columns) {
-  const names = visibleColorColumns(columns).map((column) => column.name);
+function chooseDefaultColumn(columns, datasetId) {
+  const names = visibleColorColumns(columns, datasetId).map((column) => column.name);
   const preferred = [
     "renamed_samples",
     "cell_type",
@@ -169,12 +187,12 @@ function dotSizeLegendValues(maxPercent) {
 
 function dotPlotMaxSize(geneCount, groupCount) {
   const geneSpace = geneCount <= 2 ? 13 : geneCount <= 5 ? 11 : geneCount <= 12 ? 8 : 6;
-  const groupSpace = groupCount <= 25 ? 11 : groupCount <= 60 ? 7 : groupCount <= 100 ? 4.8 : 3.6;
+  const groupSpace = groupCount <= 25 ? 12 : groupCount <= 60 ? 10 : groupCount <= 100 ? 8 : 6;
   return Math.max(2.4, Math.min(geneSpace, groupSpace));
 }
 
 function dotPlotHeight(groupCount) {
-  return Math.max(620, Math.min(1800, groupCount * 11 + 260));
+  return Math.max(720, Math.min(2800, groupCount * 16 + 260));
 }
 
 const DOT_PLOT_GENE_SPACING = 64;
@@ -213,12 +231,13 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
         const query = new URLSearchParams(window.location.search);
         const urlDataset = query.get("dataset") || DEFAULT_DATASET_ID;
         const studyPayload = await getJson(`/api/study?dataset=${encodeURIComponent(urlDataset)}`);
+        const resolvedDatasetId = studyPayload.id ?? urlDataset;
         const columns = studyPayload.metadata_columns ?? [];
-        const colorColumnNames = visibleColorColumns(columns).map((column) => column.name);
-        const clusterColumnNames = visibleClusterColumns(columns).map((column) => column.name);
+        const colorColumnNames = visibleColorColumns(columns, resolvedDatasetId).map((column) => column.name);
+        const clusterColumnNames = visibleClusterColumns(columns, resolvedDatasetId).map((column) => column.name);
         const preferredColor = studyPayload.default_color && colorColumnNames.includes(studyPayload.default_color)
           ? studyPayload.default_color
-          : chooseDefaultColumn(studyPayload.metadata_columns ?? []);
+          : chooseDefaultColumn(studyPayload.metadata_columns ?? [], resolvedDatasetId);
         const preferredCluster = studyPayload.default_cluster && clusterColumnNames.includes(studyPayload.default_cluster)
           ? studyPayload.default_cluster
           : clusterColumnNames.includes("leiden")
@@ -230,7 +249,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
         const urlTab = query.get("tab");
 
         setStudy(studyPayload);
-        setDatasetId(studyPayload.id ?? urlDataset);
+        setDatasetId(resolvedDatasetId);
         setDatasetOptions(studyPayload.datasets ?? []);
         const selectedAnnotation = urlAnnotation && colorColumnNames.includes(urlAnnotation) ? urlAnnotation : preferredColor;
         setColorBy(selectedAnnotation);
@@ -393,9 +412,15 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
     if (!hasActiveResult) void loadGene(genes.join(", "), activeTab);
   }, [activeTab, cells.length, geneResult, loading, matrixResult, plotLoading, study, violinResult]);
 
-  const colorColumns = visibleColorColumns(study?.metadata_columns ?? []);
-  const clusterColumns = visibleClusterColumns(study?.metadata_columns ?? []);
+  const colorColumns = visibleColorColumns(study?.metadata_columns ?? [], datasetId);
+  const clusterColumns = visibleClusterColumns(study?.metadata_columns ?? [], datasetId);
   const visibleCellCount = metrics?.visible_cells ?? cells.length;
+  const expressionLabel = study?.expression_label ?? "Log1p-normalized expression";
+  const meanExpressionLabel = `Mean ${expressionLabel.charAt(0).toLowerCase()}${expressionLabel.slice(1)}`;
+  const relativeMeanExpressionLabel = `Relative ${meanExpressionLabel.charAt(0).toLowerCase()}${meanExpressionLabel.slice(1)}`;
+  const expressionDescription = study?.expression_description ?? "Library-size normalized, then transformed with natural log1p.";
+  const meanExpressionColorbarTitle = meanExpressionLabel.replace(/ expression$/i, "<br>expression");
+  const relativeMeanExpressionColorbarTitle = relativeMeanExpressionLabel.replace(/ log1p-normalized expression$/i, "<br>log1p-normalized<br>expression");
   const annotationFilterItems = filterOptions.map((item) => ({ ...item, value: String(item.value) }));
   const colorLabels = useMemo(
     () => (annotationFilterItems.length ? annotationFilterItems.map((item) => item.value) : cells.map((cell) => (colorBy ? cell[colorBy] || "Unannotated" : "Cells"))),
@@ -463,7 +488,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
               [1, "#dc2626"],
             ],
             showscale: true,
-            colorbar: { title: geneResult.gene },
+            colorbar: { title: `${geneResult.gene}<br>${expressionLabel}` },
             cmin: geneResult.min,
             cmax: geneResult.max,
             size: pointSize,
@@ -495,7 +520,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
     ];
 
     return traces;
-  }, [cells, colorBy, geneResult, clusterLabels, pointSize, colorMap, showClusterLabels]);
+  }, [cells, colorBy, geneResult, clusterLabels, pointSize, colorMap, showClusterLabels, expressionLabel]);
 
   useEffect(() => {
     if (!plotRef.current || cells.length === 0) return;
@@ -550,8 +575,8 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
     const maxPctExpressing = Math.max(0, ...rows.map((row) => row.pct_expressing));
     const sizeLegendValues = dotSizeLegendValues(maxPctExpressing);
     const plotHeight = dotPlotHeight(groupCount);
-    const rowTickFontSize = groupCount > 100 ? 8 : groupCount > 70 ? 9 : 10;
-    const plotMargins = { l: groupCount > 70 ? 62 : 78, r: 160, t: 18, b: 118 };
+    const rowTickFontSize = groupCount > 100 ? 9 : groupCount > 70 ? 10 : 11;
+    const plotMargins = { l: groupCount > 70 ? 72 : 86, r: 160, t: 18, b: 118 };
     const containerWidth = Math.max(dotplotRef.current.clientWidth, 760);
     const plotWidth = Math.max(containerWidth, plotMargins.l + plotMargins.r + geneCount * DOT_PLOT_GENE_SPACING);
     const visibleGeneSlots = (plotWidth - plotMargins.l - plotMargins.r) / DOT_PLOT_GENE_SPACING;
@@ -570,7 +595,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
         y: rows.map((row) => row.group),
         text: rows.map(
           (row, index) =>
-            `${row.gene}<br>${displayColumnName(clusterColumn)}: ${row.group}<br>Mean expression: ${row.mean_expression.toFixed(3)}<br>Normalized color value: ${expressionScale[index].toFixed(3)}<br>Fraction expressing: ${row.pct_expressing.toFixed(1)}%<br>Cells: ${row.count.toLocaleString()}`,
+            `${row.gene}<br>${displayColumnName(clusterColumn)}: ${row.group}<br>${meanExpressionLabel}: ${row.mean_expression.toFixed(3)}<br>Relative color value: ${expressionScale[index].toFixed(3)}<br>Fraction expressing: ${row.pct_expressing.toFixed(1)}%<br>Cells: ${row.count.toLocaleString()}`,
         ),
         hoverinfo: "text",
         marker: {
@@ -583,7 +608,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
           cmin: 0,
           cmax: 1,
           showscale: true,
-          colorbar: { title: "Mean expression<br>(raw/log-normalized)", thickness: 12, len: 0.34, y: 0.79, yanchor: "middle", x: 1.015 },
+          colorbar: { title: relativeMeanExpressionColorbarTitle, thickness: 12, len: 0.34, y: 0.79, yanchor: "middle", x: 1.015 },
           size: rows.map((row) => dotSizeFromPercent(row.pct_expressing, maxDotSize, maxPctExpressing)),
           sizemode: "diameter",
           opacity: 0.95,
@@ -599,7 +624,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
         hoverinfo: "skip",
         showlegend: true,
         marker: {
-          size: dotSizeFromPercent(value, 11, maxPctExpressing),
+          size: dotSizeFromPercent(value, maxDotSize, maxPctExpressing),
           color: "#6b7280",
           line: { color: "#475569", width: 0.5 },
         },
@@ -663,7 +688,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
       },
       { responsive: false, displaylogo: false, toImageButtonOptions: { filename: "gene-dot-plot", scale: 2 } },
     );
-  }, [activeTab, matrixResult, clusterColumn]);
+  }, [activeTab, matrixResult, clusterColumn, meanExpressionLabel, relativeMeanExpressionColorbarTitle]);
 
   useEffect(() => {
     if (!violinRef.current) return;
@@ -740,7 +765,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
           linewidth: 1,
         },
         yaxis: {
-          title: "Expression per Cell (raw/log-normalized)",
+          title: `${expressionLabel} per cell`,
           automargin: true,
           showgrid: false,
           zeroline: true,
@@ -759,7 +784,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
       },
       { responsive: true, displaylogo: false, toImageButtonOptions: { filename: "gene-violin-plot", scale: 2 } },
     );
-  }, [violinResult, clusterColumn]);
+  }, [violinResult, clusterColumn, expressionLabel]);
 
   useEffect(() => {
     if (!heatmapRef.current) return;
@@ -778,7 +803,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
       matrixResult.groups.map((group) => {
         const row = matrixResult.rows.find((item) => item.gene === gene && item.group === group);
         if (!row) return `${gene}<br>${displayColumnName(clusterColumn)}: ${group}`;
-        return `${gene}<br>${displayColumnName(clusterColumn)}: ${group}<br>Mean: ${row.mean_expression.toFixed(3)}<br>Expressing: ${row.pct_expressing.toFixed(1)}%<br>Cells: ${row.count.toLocaleString()}`;
+        return `${gene}<br>${displayColumnName(clusterColumn)}: ${group}<br>${meanExpressionLabel}: ${row.mean_expression.toFixed(3)}<br>Expressing: ${row.pct_expressing.toFixed(1)}%<br>Cells: ${row.count.toLocaleString()}`;
       }),
     );
 
@@ -793,7 +818,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
           text,
           hoverinfo: "text",
           colorscale: "Viridis",
-          colorbar: { title: "Mean expression" },
+          colorbar: { title: meanExpressionColorbarTitle },
         },
       ],
       {
@@ -806,7 +831,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
       },
       { responsive: true, displaylogo: false, toImageButtonOptions: { filename: "expression-heat-map", scale: 2 } },
     );
-  }, [matrixResult, clusterColumn]);
+  }, [matrixResult, clusterColumn, meanExpressionColorbarTitle, meanExpressionLabel]);
 
   useEffect(() => {
     const node = plotRef.current;
@@ -822,7 +847,25 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
     try {
       setPlotLoading(true);
       setError("");
-      setDatasetId(nextDatasetId);
+      const studyPayload = await getJson(`/api/study?dataset=${encodeURIComponent(nextDatasetId)}`);
+      const resolvedDatasetId = studyPayload.id ?? nextDatasetId;
+      const columns = studyPayload.metadata_columns ?? [];
+      const colorColumnNames = visibleColorColumns(columns, resolvedDatasetId).map((column) => column.name);
+      const clusterColumnNames = visibleClusterColumns(columns, resolvedDatasetId).map((column) => column.name);
+      const nextColor = studyPayload.default_color && colorColumnNames.includes(studyPayload.default_color)
+        ? studyPayload.default_color
+        : chooseDefaultColumn(columns, resolvedDatasetId);
+      const nextCluster = studyPayload.default_cluster && clusterColumnNames.includes(studyPayload.default_cluster)
+        ? studyPayload.default_cluster
+        : clusterColumnNames.includes("leiden")
+          ? "leiden"
+          : clusterColumnNames[0] ?? "";
+
+      setStudy(studyPayload);
+      setDatasetId(resolvedDatasetId);
+      setDatasetOptions(studyPayload.datasets ?? []);
+      setColorBy(nextColor);
+      setClusterColumn(nextCluster);
       setSelectedAnnotationValues([]);
       setGeneQuery("");
       setPendingGene("");
@@ -832,22 +875,6 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
       setViolinResult(null);
       setCells([]);
       setClusterLabels([]);
-      const studyPayload = await getJson(`/api/study?dataset=${encodeURIComponent(nextDatasetId)}`);
-      const columns = studyPayload.metadata_columns ?? [];
-      const colorColumnNames = visibleColorColumns(columns).map((column) => column.name);
-      const clusterColumnNames = visibleClusterColumns(columns).map((column) => column.name);
-      const nextColor = studyPayload.default_color && colorColumnNames.includes(studyPayload.default_color)
-        ? studyPayload.default_color
-        : chooseDefaultColumn(columns);
-      const nextCluster = studyPayload.default_cluster && clusterColumnNames.includes(studyPayload.default_cluster)
-        ? studyPayload.default_cluster
-        : clusterColumnNames.includes("leiden")
-          ? "leiden"
-          : clusterColumnNames[0] ?? "";
-      setStudy(studyPayload);
-      setDatasetOptions(studyPayload.datasets ?? []);
-      setColorBy(nextColor);
-      setClusterColumn(nextCluster);
       setActiveTab("scatter");
     } catch (err) {
       setError(err.message);
@@ -1154,7 +1181,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
           <div className="plot-toolbar compact">
             <div>
               <strong>{matrixResult ? "Gene dot plot" : "Dot plot"}</strong>
-              <span>Selected genes across {displayColumnName(clusterColumn)}; color is expression, size is fraction expressing</span>
+              <span>{relativeMeanExpressionLabel} across {displayColumnName(clusterColumn)}; size is fraction expressing</span>
             </div>
           </div>
           <div ref={dotplotRef} className="dotplot">
@@ -1165,7 +1192,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
           <div className="plot-toolbar compact">
             <div>
               <strong>{violinResult ? "Gene violin plot" : "Violin plot"}</strong>
-              <span>Raw/log-normalized per-cell expression across {displayColumnName(clusterColumn)}</span>
+              <span>{expressionLabel} per cell across {displayColumnName(clusterColumn)}</span>
             </div>
           </div>
           <div ref={violinRef} className="dotplot">
@@ -1176,7 +1203,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
           <div className="plot-toolbar compact">
             <div>
               <strong>{matrixResult ? "Expression heat map" : "Heat map"}</strong>
-              <span>Mean expression by {displayColumnName(clusterColumn)}, inspired by Morpheus matrix views</span>
+              <span>{meanExpressionLabel} by {displayColumnName(clusterColumn)}</span>
             </div>
           </div>
           <div ref={heatmapRef} className="dotplot">
@@ -1200,7 +1227,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
                 <strong>{matrixResult.groups.length}</strong>
                 <span>{displayColumnName(clusterColumn)}</span>
               </div>
-              <p>Dot color shows mean raw/log-normalized expression. Dot size shows the fraction of cells expressing each gene, scaled to the largest fraction in the selected results.</p>
+              <p>Dot color shows {relativeMeanExpressionLabel.toLowerCase()} across the selected result; hover text reports the actual group mean. Dot size shows the fraction of cells expressing each gene, scaled to the largest fraction in the selected results. {expressionDescription}</p>
               <div className="legend-gene-list">
                 {matrixResult.genes.map((gene) => (
                   <span key={gene}>{gene}</span>
@@ -1217,7 +1244,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
                 <strong>{violinResult.groups.length}</strong>
                 <span>{displayColumnName(clusterColumn)}</span>
               </div>
-              <p>Violin width shows sampled raw/log-normalized per-cell expression. The box marks the interquartile range and the center line marks the mean.</p>
+              <p>Violin width shows sampled {expressionLabel.toLowerCase()} per cell. The box marks the interquartile range and the center line marks the mean. {expressionDescription}</p>
               <div className="legend-gene-list">
                 {violinResult.genes.map((gene) => (
                   <span key={gene}>{gene}</span>
