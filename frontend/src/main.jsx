@@ -55,6 +55,40 @@ const DATASET_COLUMN_OPTIONS = {
     cluster: new Set(["renamed_samples", "leiden_no_contam_26_28"]),
   },
 };
+const FULL_CELL_TYPE_ORDER = [
+  "MG",
+  "MGPC",
+  "PR precursors",
+  "Rod",
+  "Cones",
+  "BC",
+  "AC",
+  "HC",
+  "RGC",
+  "RPE",
+  "Melanocyte",
+  "Microglia_ImmuneCells",
+  "Oligodenrocyte",
+  "Endothelial",
+  "Perycites",
+];
+const FULL_CELL_TYPE_LABELS = new Map([
+  ["MG", "MG"],
+  ["MGPC", "MGPC"],
+  ["PR precursors", "PR precursors"],
+  ["Rod", "rod"],
+  ["Cones", "cones"],
+  ["BC", "BC"],
+  ["AC", "AC"],
+  ["HC", "HC"],
+  ["RGC", "RGC"],
+  ["RPE", "RPE"],
+  ["Melanocyte", "Melanocyte"],
+  ["Microglia_ImmuneCells", "Microglia/ImmuneCells"],
+  ["Oligodenrocyte", "Oligodendrocyte"],
+  ["Endothelial", "Endothelial"],
+  ["Perycites", "Pericytes"],
+]);
 
 function titleCaseLabel(value) {
   return String(value || "")
@@ -70,6 +104,19 @@ function displayColumnName(name) {
 
 function displayValue(value) {
   return titleCaseLabel(value || "Unannotated");
+}
+
+function displayGroupValue(value, datasetId, columnName) {
+  if (datasetId === "full-cell-types" && columnName === "celltype") {
+    return FULL_CELL_TYPE_LABELS.get(String(value)) ?? String(value);
+  }
+  return String(value || "Unannotated");
+}
+
+function orderedGroups(groups, datasetId, columnName) {
+  if (datasetId !== "full-cell-types" || columnName !== "celltype") return groups;
+  const order = new Map(FULL_CELL_TYPE_ORDER.map((value, index) => [value, index]));
+  return [...groups].sort((left, right) => (order.get(left) ?? Number.MAX_SAFE_INTEGER) - (order.get(right) ?? Number.MAX_SAFE_INTEGER));
 }
 
 function visibleColorColumns(columns, datasetId) {
@@ -157,11 +204,11 @@ function replaceActiveGeneToken(value, gene) {
   return value.replace(/([^,\s]*)$/, trimmedGene);
 }
 
-function clusterLabelAnnotations(clusterLabels) {
+function clusterLabelAnnotations(clusterLabels, datasetId, clusterColumn) {
   return clusterLabels.map((label) => ({
     x: label.x,
     y: label.y,
-    text: displayValue(label.cluster),
+    text: displayGroupValue(label.cluster, datasetId, clusterColumn),
     showarrow: false,
     xanchor: "center",
     yanchor: "middle",
@@ -448,6 +495,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
   const isDotplotTab = activeTab === "dotplot";
   const isViolinTab = activeTab === "violin";
   const isHeatmapTab = activeTab === "heatmap";
+  const showRightLegend = !(isScatterTab && geneResult);
   const sidebarTitle = isDotplotTab ? "Dot plot" : isViolinTab ? "Violin plot" : isHeatmapTab ? "Heat map" : "Scatter plot";
   const sidebarDescription = isDotplotTab
     ? "Compare selected gene expression across the current groups."
@@ -465,7 +513,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
     const x = cells.map((cell) => cell.x);
     const y = cells.map((cell) => cell.y);
     const text = cells.map((cell) => {
-      const annotation = colorBy ? `<br>${displayColumnName(colorBy)}: ${cell[colorBy] || "Unannotated"}` : "";
+      const annotation = colorBy ? `<br>${displayColumnName(colorBy)}: ${displayGroupValue(cell[colorBy] || "Unannotated", datasetId, colorBy)}` : "";
       return `${cell.cell_id}${annotation}`;
     });
 
@@ -488,7 +536,29 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
               [1, "#dc2626"],
             ],
             showscale: true,
-            colorbar: { title: `${geneResult.gene}<br>${expressionLabel}` },
+            colorbar: {
+              title: {
+                text: `<b>${geneResult.gene}</b><br>${expressionLabel.replace(/ expression$/i, "<br>expression")}`,
+                side: "top",
+                font: { size: 11, color: "#334155" },
+              },
+              thickness: 10,
+              thicknessmode: "pixels",
+              len: 0.24,
+              lenmode: "fraction",
+              x: 0.985,
+              xanchor: "right",
+              y: 0.94,
+              yanchor: "top",
+              xpad: 4,
+              ypad: 4,
+              tickfont: { size: 10, color: "#475569" },
+              ticks: "outside",
+              ticklen: 3,
+              outlinecolor: "#94a3b8",
+              outlinewidth: 1,
+              bgcolor: "rgba(255, 255, 255, 0.9)",
+            },
             cmin: geneResult.min,
             cmax: geneResult.max,
             size: pointSize,
@@ -520,7 +590,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
     ];
 
     return traces;
-  }, [cells, colorBy, geneResult, clusterLabels, pointSize, colorMap, showClusterLabels, expressionLabel]);
+  }, [cells, colorBy, datasetId, geneResult, clusterLabels, pointSize, colorMap, showClusterLabels, expressionLabel]);
 
   useEffect(() => {
     if (!plotRef.current || cells.length === 0) return;
@@ -547,7 +617,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
       dragmode: "lasso",
       hovermode: "closest",
       showlegend: false,
-      annotations: showClusterLabels ? clusterLabelAnnotations(clusterLabels) : [],
+      annotations: showClusterLabels ? clusterLabelAnnotations(clusterLabels, datasetId, clusterColumn) : [],
     };
 
     const config = {
@@ -558,7 +628,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
     };
 
     Plotly.react(plotRef.current, plotData, layout, config);
-  }, [cells.length, plotData, showClusterLabels, clusterLabels]);
+  }, [cells.length, plotData, showClusterLabels, clusterLabels, datasetId, clusterColumn]);
 
   useEffect(() => {
     if (!dotplotRef.current) return;
@@ -568,9 +638,10 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
     }
 
     const rows = matrixResult.rows ?? [];
+    const groups = orderedGroups(matrixResult.groups, datasetId, clusterColumn);
     const geneIndex = new Map(matrixResult.genes.map((gene, index) => [gene, index]));
     const geneCount = Math.max(matrixResult.genes.length, 1);
-    const groupCount = Math.max(matrixResult.groups.length, 1);
+    const groupCount = Math.max(groups.length, 1);
     const maxDotSize = dotPlotMaxSize(geneCount, groupCount);
     const maxPctExpressing = Math.max(0, ...rows.map((row) => row.pct_expressing));
     const sizeLegendValues = dotSizeLegendValues(maxPctExpressing);
@@ -595,7 +666,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
         y: rows.map((row) => row.group),
         text: rows.map(
           (row, index) =>
-            `${row.gene}<br>${displayColumnName(clusterColumn)}: ${row.group}<br>${meanExpressionLabel}: ${row.mean_expression.toFixed(3)}<br>Relative color value: ${expressionScale[index].toFixed(3)}<br>Fraction expressing: ${row.pct_expressing.toFixed(1)}%<br>Cells: ${row.count.toLocaleString()}`,
+            `${row.gene}<br>${displayColumnName(clusterColumn)}: ${displayGroupValue(row.group, datasetId, clusterColumn)}<br>${meanExpressionLabel}: ${row.mean_expression.toFixed(3)}<br>Relative color value: ${expressionScale[index].toFixed(3)}<br>Fraction expressing: ${row.pct_expressing.toFixed(1)}%<br>Cells: ${row.count.toLocaleString()}`,
         ),
         hoverinfo: "text",
         marker: {
@@ -674,9 +745,12 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
         yaxis: {
           title: "",
           type: "category",
-          categoryarray: matrixResult.groups,
+          categoryarray: groups,
           autorange: "reversed",
           automargin: true,
+          tickmode: "array",
+          tickvals: groups,
+          ticktext: groups.map((group) => displayGroupValue(group, datasetId, clusterColumn)),
           tickfont: { size: rowTickFontSize },
           showgrid: false,
           zeroline: false,
@@ -688,7 +762,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
       },
       { responsive: false, displaylogo: false, toImageButtonOptions: { filename: "gene-dot-plot", scale: 2 } },
     );
-  }, [activeTab, matrixResult, clusterColumn, meanExpressionLabel, relativeMeanExpressionColorbarTitle]);
+  }, [activeTab, matrixResult, clusterColumn, datasetId, meanExpressionLabel, relativeMeanExpressionColorbarTitle]);
 
   useEffect(() => {
     if (!violinRef.current) return;
@@ -698,7 +772,8 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
     }
 
     const rows = violinResult.rows ?? [];
-    const groupCount = Math.max(violinResult.groups.length, 1);
+    const groups = orderedGroups(violinResult.groups, datasetId, clusterColumn);
+    const groupCount = Math.max(groups.length, 1);
     const geneCount = Math.max(violinResult.genes.length, 1);
     const palette = ["#2563eb", "#d97706", "#16a34a", "#9333ea", "#dc2626", "#0891b2"];
     const plotWidth = Math.max(760, groupCount * (geneCount > 1 ? 64 : 44) + 180);
@@ -714,7 +789,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
           const expressionValue = Math.max(0, Number(value) || 0);
           x.push(row.group);
           y.push(expressionValue);
-          text.push(`${gene}<br>${displayColumnName(clusterColumn)}: ${row.group}<br>Expression: ${expressionValue.toFixed(3)}<br>Cells: ${row.count.toLocaleString()}<br>Sampled: ${row.sampled_count.toLocaleString()}`);
+          text.push(`${gene}<br>${displayColumnName(clusterColumn)}: ${displayGroupValue(row.group, datasetId, clusterColumn)}<br>Expression: ${expressionValue.toFixed(3)}<br>Cells: ${row.count.toLocaleString()}<br>Sampled: ${row.sampled_count.toLocaleString()}`);
         });
       });
       const traceMaxExpression = Math.max(...y, 0);
@@ -753,8 +828,11 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
         xaxis: {
           title: "",
           type: "category",
-          categoryarray: violinResult.groups,
+          categoryarray: groups,
           automargin: true,
+          tickmode: "array",
+          tickvals: groups,
+          ticktext: groups.map((group) => displayGroupValue(group, datasetId, clusterColumn)),
           tickangle: -45,
           tickfont: { size: groupCount > 45 ? 9 : 11 },
           showgrid: false,
@@ -784,7 +862,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
       },
       { responsive: true, displaylogo: false, toImageButtonOptions: { filename: "gene-violin-plot", scale: 2 } },
     );
-  }, [violinResult, clusterColumn, expressionLabel]);
+  }, [violinResult, clusterColumn, datasetId, expressionLabel]);
 
   useEffect(() => {
     if (!heatmapRef.current) return;
@@ -793,17 +871,19 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
       return;
     }
 
-    const z = matrixResult.genes.map((gene) =>
-      matrixResult.groups.map((group) => {
+    const groups = orderedGroups(matrixResult.groups, datasetId, clusterColumn);
+    const z = groups.map((group) =>
+      matrixResult.genes.map((gene) => {
         const row = matrixResult.rows.find((item) => item.gene === gene && item.group === group);
         return row?.mean_expression ?? 0;
       }),
     );
-    const text = matrixResult.genes.map((gene) =>
-      matrixResult.groups.map((group) => {
+    const text = groups.map((group) =>
+      matrixResult.genes.map((gene) => {
         const row = matrixResult.rows.find((item) => item.gene === gene && item.group === group);
-        if (!row) return `${gene}<br>${displayColumnName(clusterColumn)}: ${group}`;
-        return `${gene}<br>${displayColumnName(clusterColumn)}: ${group}<br>${meanExpressionLabel}: ${row.mean_expression.toFixed(3)}<br>Expressing: ${row.pct_expressing.toFixed(1)}%<br>Cells: ${row.count.toLocaleString()}`;
+        const groupLabel = displayGroupValue(group, datasetId, clusterColumn);
+        if (!row) return `${gene}<br>${displayColumnName(clusterColumn)}: ${groupLabel}`;
+        return `${gene}<br>${displayColumnName(clusterColumn)}: ${groupLabel}<br>${meanExpressionLabel}: ${row.mean_expression.toFixed(3)}<br>Expressing: ${row.pct_expressing.toFixed(1)}%<br>Cells: ${row.count.toLocaleString()}`;
       }),
     );
 
@@ -812,8 +892,8 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
       [
         {
           type: "heatmap",
-          x: matrixResult.groups,
-          y: matrixResult.genes,
+          x: matrixResult.genes,
+          y: groups,
           z,
           text,
           hoverinfo: "text",
@@ -823,15 +903,25 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
       ],
       {
         autosize: true,
-        margin: { l: 100, r: 20, t: 8, b: 62 },
+        height: Math.max(620, groups.length * 28 + 180),
+        margin: { l: 150, r: 80, t: 8, b: 118 },
         paper_bgcolor: "#ffffff",
         plot_bgcolor: "#ffffff",
-        xaxis: { title: displayColumnName(clusterColumn), type: "category", automargin: true },
-        yaxis: { automargin: true },
+        xaxis: { title: "", type: "category", automargin: true, tickangle: -90 },
+        yaxis: {
+          title: "",
+          type: "category",
+          categoryarray: groups,
+          autorange: "reversed",
+          automargin: true,
+          tickmode: "array",
+          tickvals: groups,
+          ticktext: groups.map((group) => displayGroupValue(group, datasetId, clusterColumn)),
+        },
       },
       { responsive: true, displaylogo: false, toImageButtonOptions: { filename: "expression-heat-map", scale: 2 } },
     );
-  }, [matrixResult, clusterColumn, meanExpressionColorbarTitle, meanExpressionLabel]);
+  }, [matrixResult, clusterColumn, datasetId, meanExpressionColorbarTitle, meanExpressionLabel]);
 
   useEffect(() => {
     const node = plotRef.current;
@@ -948,7 +1038,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
           </div>
         </div>
       </header>
-      <section className="explore-shell">
+      <section className={`explore-shell${showRightLegend ? "" : " no-right-legend"}`}>
       <aside className="sidebar">
         <div>
           <p className="eyebrow">Explore controls</p>
@@ -1065,7 +1155,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
                 onClick={() => toggleAnnotationValue(item.label)}
               >
                 <span style={{ backgroundColor: item.color }} />
-                <strong>{item.label}</strong>
+                <strong>{displayGroupValue(item.label, datasetId, colorBy)}</strong>
                 <label>{item.count.toLocaleString()}</label>
               </button>
             ))}
@@ -1211,6 +1301,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
           </div>
         </div>
       </section>
+      {showRightLegend && (
       <aside className="legend-panel">
         <div className="legend-card">
           <div>
@@ -1256,7 +1347,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
               {legendItems.slice(0, 80).map((item) => (
                 <div key={item.label} className="legend-row">
                   <span style={{ backgroundColor: item.color }} />
-                  <strong>{item.label}</strong>
+                  <strong>{displayGroupValue(item.label, datasetId, colorBy)}</strong>
                   <label>{item.count.toLocaleString()}</label>
                 </div>
               ))}
@@ -1275,6 +1366,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
           )}
         </div>
       </aside>
+      )}
       </section>
     </main>
   );
