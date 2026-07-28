@@ -74,8 +74,8 @@ const FULL_CELL_TYPE_ORDER = [
 ];
 const FULL_CELL_TYPE_LABELS = new Map([
   ["MG", "MG"],
-  ["MGPC", "MGPC"],
-  ["PR precursors", "PR precursors"],
+  ["MGPC", "Rod precursor"],
+  ["PR precursors", "Immature rod"],
   ["Rod", "rod"],
   ["Cones", "cones"],
   ["BC", "BC"],
