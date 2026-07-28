@@ -11,6 +11,5 @@ dist/
 *.loom
 *.zarr/
 
-data/processed/*.json
-data/processed/*.parquet
-data/processed/*.csv
+data/processed/**
+!data/processed/.gitkeep
