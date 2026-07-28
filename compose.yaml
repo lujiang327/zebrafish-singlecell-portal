@@ -56,4 +56,4 @@ services:
       - ${BC_H5AD_PATH:-./bc_9_sample_guca1b_gt2_mikiko_no_contam_26_28.h5ad}:/app/bc_9_sample_guca1b_gt2_mikiko_no_contam_26_28.h5ad:ro,Z
       - ${RGC_H5AD_PATH:-./corrected_RGC_annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad}:/app/corrected_RGC_annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad:ro,Z
       - ./data/processed:/app/data/processed:Z
-    command: ["python", "backend/preprocess.py", "--all"]
+    command: ["python", "backend/preprocess.py", "--all", "--expression-cache"]

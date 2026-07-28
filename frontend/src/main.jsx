@@ -89,6 +89,13 @@ const FULL_CELL_TYPE_LABELS = new Map([
   ["Endothelial", "Endothelial"],
   ["Perycites", "Pericytes"],
 ]);
+const EXPRESSION_COLORSCALE = [
+  [0, "#d1d5db"],
+  [0.18, "#fde047"],
+  [0.45, "#f59e0b"],
+  [0.72, "#ef4444"],
+  [1, "#991b1b"],
+];
 
 function titleCaseLabel(value) {
   return String(value || "")
@@ -117,6 +124,26 @@ function orderedGroups(groups, datasetId, columnName) {
   if (datasetId !== "full-cell-types" || columnName !== "celltype") return groups;
   const order = new Map(FULL_CELL_TYPE_ORDER.map((value, index) => [value, index]));
   return [...groups].sort((left, right) => (order.get(left) ?? Number.MAX_SAFE_INTEGER) - (order.get(right) ?? Number.MAX_SAFE_INTEGER));
+}
+
+function percentile(values, requestedPercentile, fallback = 1) {
+  const sorted = values
+    .map(Number)
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .sort((left, right) => left - right);
+  if (sorted.length === 0) return fallback;
+  const position = (Math.min(100, Math.max(0, requestedPercentile)) / 100) * (sorted.length - 1);
+  const lowerIndex = Math.floor(position);
+  const upperIndex = Math.ceil(position);
+  const fraction = position - lowerIndex;
+  return sorted[lowerIndex] + (sorted[upperIndex] - sorted[lowerIndex]) * fraction;
+}
+
+function ordinalPercentile(value) {
+  const remainder100 = value % 100;
+  if (remainder100 >= 11 && remainder100 <= 13) return `${value}th`;
+  const suffix = value % 10 === 1 ? "st" : value % 10 === 2 ? "nd" : value % 10 === 3 ? "rd" : "th";
+  return `${value}${suffix}`;
 }
 
 function visibleColorColumns(columns, datasetId) {
@@ -267,6 +294,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
   const [geneOptions, setGeneOptions] = useState([]);
   const [activeTab, setActiveTab] = useState("scatter");
   const [pointSize, setPointSize] = useState(2);
+  const [colorCeilingPercentile, setColorCeilingPercentile] = useState(98);
   const [showClusterLabels, setShowClusterLabels] = useState(true);
   const [loading, setLoading] = useState(true);
   const [plotLoading, setPlotLoading] = useState(false);
@@ -518,6 +546,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
     });
 
     if (geneResult) {
+      const expressionCeiling = percentile(geneResult.values, colorCeilingPercentile, geneResult.max || 1);
       const traces = [
         {
           type: "scattergl",
@@ -530,11 +559,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
           hoverinfo: "text",
           marker: {
             color: geneResult.values,
-            colorscale: [
-              [0, "#d1d5db"],
-              [0.45, "#fde68a"],
-              [1, "#dc2626"],
-            ],
+            colorscale: EXPRESSION_COLORSCALE,
             showscale: true,
             colorbar: {
               title: {
@@ -559,8 +584,8 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
               outlinewidth: 1,
               bgcolor: "rgba(255, 255, 255, 0.9)",
             },
-            cmin: geneResult.min,
-            cmax: geneResult.max,
+            cmin: 0,
+            cmax: Math.max(expressionCeiling, Number.EPSILON),
             size: pointSize,
             opacity: 0.78,
           },
@@ -590,7 +615,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
     ];
 
     return traces;
-  }, [cells, colorBy, datasetId, geneResult, clusterLabels, pointSize, colorMap, showClusterLabels, expressionLabel]);
+  }, [cells, colorBy, colorCeilingPercentile, datasetId, geneResult, clusterLabels, pointSize, colorMap, showClusterLabels, expressionLabel]);
 
   useEffect(() => {
     if (!plotRef.current || cells.length === 0) return;
@@ -655,8 +680,10 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
     const xRange = [geneCenter - visibleGeneSlots / 2, geneCenter + visibleGeneSlots / 2];
     const meanValues = rows.map((row) => row.mean_expression);
     const minMean = Math.min(...meanValues);
-    const maxMean = Math.max(...meanValues);
-    const expressionScale = rows.map((row) => (maxMean > minMean ? (row.mean_expression - minMean) / (maxMean - minMean) : 0));
+    const maxMean = percentile(meanValues, colorCeilingPercentile, Math.max(...meanValues));
+    const expressionScale = rows.map((row) => (
+      maxMean > minMean ? Math.min(1, Math.max(0, (row.mean_expression - minMean) / (maxMean - minMean))) : 0
+    ));
     const data = [
       {
         type: "scatter",
@@ -671,11 +698,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
         hoverinfo: "text",
         marker: {
           color: expressionScale,
-          colorscale: [
-            [0, "#d1d5db"],
-            [0.45, "#fde68a"],
-            [1, "#dc2626"],
-          ],
+          colorscale: EXPRESSION_COLORSCALE,
           cmin: 0,
           cmax: 1,
           showscale: true,
@@ -762,7 +785,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
       },
       { responsive: false, displaylogo: false, toImageButtonOptions: { filename: "gene-dot-plot", scale: 2 } },
     );
-  }, [activeTab, matrixResult, clusterColumn, datasetId, meanExpressionLabel, relativeMeanExpressionColorbarTitle]);
+  }, [activeTab, colorCeilingPercentile, matrixResult, clusterColumn, datasetId, meanExpressionLabel, relativeMeanExpressionColorbarTitle]);
 
   useEffect(() => {
     if (!violinRef.current) return;
@@ -1189,6 +1212,25 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
             </div>
           )}
         </section>
+
+        {((isScatterTab && geneResult) || (isDotplotTab && matrixResult)) && (
+          <section className="control-group">
+            <div className="range-heading">
+              <label htmlFor="colorCeiling">Color ceiling</label>
+              <span>{ordinalPercentile(colorCeilingPercentile)} percentile</span>
+            </div>
+            <input
+              id="colorCeiling"
+              className="range-input"
+              type="range"
+              min="85"
+              max="100"
+              step="1"
+              value={colorCeilingPercentile}
+              onChange={(event) => setColorCeilingPercentile(Number(event.target.value))}
+            />
+          </section>
+        )}
 
         <div className="actions">
           <button type="button" onClick={() => { setGeneQuery(""); setGeneOptions([]); setGeneResult(null); setMatrixResult(null); setViolinResult(null); }} title={clearGeneTitle}>

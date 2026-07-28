@@ -8,11 +8,13 @@ from typing import Any
 import anndata as ad
 import numpy as np
 import pandas as pd
+from scipy import sparse
 
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_H5AD = ROOT / "annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad"
 DEFAULT_OUT = ROOT / "data" / "processed"
+EXPRESSION_CACHE_NAME = "expression.h5ad"
 
 try:
     from backend.datasets import DATASETS, DEFAULT_DATASET_ID, public_dataset
@@ -46,7 +48,86 @@ def _embedding_key(obsm_keys: list[str]) -> str:
     return obsm_keys[0]
 
 
-def preprocess(h5ad_path: Path, out_dir: Path, dataset: dict[str, Any] | None = None) -> dict[str, Any]:
+def _expression_source(adata: ad.AnnData) -> tuple[Any, str]:
+    if adata.raw is not None:
+        return adata.raw, "raw"
+    return adata, "X"
+
+
+def _expression_cache_is_current(cache_path: Path, source_path: Path, expected_shape: tuple[int, int]) -> bool:
+    if not cache_path.exists():
+        return False
+
+    cache: ad.AnnData | None = None
+    try:
+        cache = ad.read_h5ad(cache_path, backed="r")
+        stat = source_path.stat()
+        return (
+            cache.shape == expected_shape
+            and str(cache.uns.get("storage_format", "")) == "csc"
+            and int(cache.uns.get("source_size", -1)) == stat.st_size
+            and int(cache.uns.get("source_mtime_ns", -1)) == stat.st_mtime_ns
+        )
+    except (OSError, ValueError, KeyError):
+        return False
+    finally:
+        if cache is not None and cache.file.is_open:
+            cache.file.close()
+
+
+def write_expression_cache(
+    adata: ad.AnnData,
+    source_path: Path,
+    out_dir: Path,
+    force: bool = False,
+) -> Path:
+    source, source_name = _expression_source(adata)
+    cache_path = out_dir / EXPRESSION_CACHE_NAME
+    expected_shape = (adata.n_obs, source.n_vars)
+    if not force and _expression_cache_is_current(cache_path, source_path, expected_shape):
+        print(f"Reusing {cache_path}")
+        return cache_path
+
+    print(f"Building CSC expression cache from adata.{source_name}; this can take several minutes.")
+    matrix = source.X
+    if hasattr(matrix, "to_memory"):
+        matrix = matrix.to_memory()
+    if sparse.issparse(matrix):
+        matrix = matrix.tocsc(copy=False)
+    else:
+        matrix = sparse.csc_matrix(np.asarray(matrix))
+
+    stat = source_path.stat()
+    cache = ad.AnnData(
+        X=matrix,
+        obs=pd.DataFrame(index=pd.Index(adata.obs_names.astype(str), name=adata.obs_names.name)),
+        var=pd.DataFrame(index=pd.Index(source.var_names.astype(str), name=source.var_names.name)),
+    )
+    cache.uns["expression_source"] = source_name
+    cache.uns["storage_format"] = "csc"
+    cache.uns["source_file"] = source_path.name
+    cache.uns["source_size"] = stat.st_size
+    cache.uns["source_mtime_ns"] = stat.st_mtime_ns
+
+    temporary_path = cache_path.with_suffix(".h5ad.tmp")
+    temporary_path.unlink(missing_ok=True)
+    try:
+        cache.write_h5ad(temporary_path, compression="gzip", compression_opts=4)
+        temporary_path.replace(cache_path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+    print(f"Wrote {cache_path}")
+    return cache_path
+
+
+def preprocess(
+    h5ad_path: Path,
+    out_dir: Path,
+    dataset: dict[str, Any] | None = None,
+    expression_cache: bool = False,
+    force_expression_cache: bool = False,
+) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
     adata = ad.read_h5ad(h5ad_path, backed="r")
 
@@ -119,15 +200,25 @@ def preprocess(h5ad_path: Path, out_dir: Path, dataset: dict[str, Any] | None = 
     print(f"Wrote {out_dir / 'study.json'}")
     print(f"Wrote {out_dir / 'cells.parquet'}")
     print(f"Wrote {out_dir / 'genes.json'}")
+    if expression_cache:
+        write_expression_cache(adata, h5ad_path, out_dir, force=force_expression_cache)
+    if adata.file.is_open:
+        adata.file.close()
     return study
 
 
-def preprocess_all(out_dir: Path) -> None:
+def preprocess_all(out_dir: Path, expression_cache: bool = False, force_expression_cache: bool = False) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     dataset_summaries: list[dict[str, Any]] = []
     for dataset in DATASETS:
         dataset_out = out_dir / dataset["id"]
-        summary = preprocess(Path(dataset["h5ad"]).resolve(), dataset_out.resolve(), dataset)
+        summary = preprocess(
+            Path(dataset["h5ad"]).resolve(),
+            dataset_out.resolve(),
+            dataset,
+            expression_cache=expression_cache,
+            force_expression_cache=force_expression_cache,
+        )
         dataset_summaries.append(
             {
                 "id": summary["id"],
@@ -156,11 +247,26 @@ def main() -> None:
     parser.add_argument("--h5ad", type=Path, default=DEFAULT_H5AD)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--all", action="store_true", help="Preprocess all registered study datasets.")
+    parser.add_argument(
+        "--expression-cache",
+        action="store_true",
+        help="Build a CSC expression cache optimized for gene-column API queries.",
+    )
+    parser.add_argument(
+        "--force-expression-cache",
+        action="store_true",
+        help="Rebuild the CSC expression cache even when it matches the source H5AD.",
+    )
     args = parser.parse_args()
     if args.all:
-        preprocess_all(args.out.resolve())
+        preprocess_all(args.out.resolve(), args.expression_cache, args.force_expression_cache)
     else:
-        preprocess(args.h5ad.resolve(), args.out.resolve())
+        preprocess(
+            args.h5ad.resolve(),
+            args.out.resolve(),
+            expression_cache=args.expression_cache,
+            force_expression_cache=args.force_expression_cache,
+        )
 
 
 if __name__ == "__main__":

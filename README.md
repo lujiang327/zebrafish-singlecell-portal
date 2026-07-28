@@ -53,18 +53,20 @@ Run this once before starting the API:
 
 ```bash
 conda activate zebrafish-singlecell-portal
-python backend/preprocess.py --all
+python backend/preprocess.py --all --expression-cache
 ```
 
 This writes:
 
 ```text
 data/processed/study.json
-data/processed/full-cell-types/{study.json,cells.parquet,genes.json}
-data/processed/ac-subtypes/{study.json,cells.parquet,genes.json}
-data/processed/bc-subtypes/{study.json,cells.parquet,genes.json}
-data/processed/rgc-subtypes/{study.json,cells.parquet,genes.json}
+data/processed/full-cell-types/{study.json,cells.parquet,genes.json,expression.h5ad}
+data/processed/ac-subtypes/{study.json,cells.parquet,genes.json,expression.h5ad}
+data/processed/bc-subtypes/{study.json,cells.parquet,genes.json,expression.h5ad}
+data/processed/rgc-subtypes/{study.json,cells.parquet,genes.json,expression.h5ad}
 ```
+
+Each `expression.h5ad` stores the plot expression matrix in CSC format so the API can read one gene across all cells efficiently. Building these files can require several gigabytes of temporary memory and disk. Existing caches are reused when the source file size and modification time are unchanged; add `--force-expression-cache` to rebuild them.
 
 The preprocessing script chooses the first available embedding from this order:
 

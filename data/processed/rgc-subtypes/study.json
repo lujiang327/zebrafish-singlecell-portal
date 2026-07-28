@@ -341,5 +341,7 @@
     "X_umap"
   ],
   "default_color": "renamed_samples",
-  "default_cluster": "celltype"
+  "default_cluster": "celltype",
+  "expression_label": "Log1p-normalized expression",
+  "expression_description": "Library-size normalized to a target sum of approximately 5,704 per cell, then transformed with natural log1p."
 }

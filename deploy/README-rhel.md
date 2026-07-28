@@ -14,7 +14,7 @@ Recommended minimum server resources:
 - RHEL 8.10
 - 4 CPU cores
 - 16 GB RAM or more
-- Enough disk for Docker images, processed files, logs, and the `.h5ad` file
+- Enough disk for Docker images, source `.h5ad` files, logs, and CSC expression caches (allow at least the combined size of the source datasets again)
 - Open inbound firewall port for the published web port, usually `80` or `8080`
 
 Install Docker Engine and Compose plugin from the Docker repository:
@@ -148,6 +148,8 @@ mkdir -p data/processed
 docker compose --profile tools run --rm preprocess
 ```
 
+The first run builds a CSC expression cache for each dataset. This is intentionally memory- and disk-intensive, but it makes individual gene-expression API requests much faster. Later runs reuse caches whose source file size and modification time are unchanged.
+
 This writes:
 
 ```text
@@ -163,6 +165,25 @@ The preprocessing container runs as root so it can write to a fresh bind-mounted
 ```bash
 docker compose up -d
 ```
+
+## Repeatable Redeployment
+
+After the application is installed and all four H5AD files are present, run the checked-in deployment script from the project root:
+
+```bash
+chmod +x deploy/redeploy.sh
+./deploy/redeploy.sh
+```
+
+The script pulls Git changes with `--ff-only`, validates the datasets, builds images, backs up current processed data, stops the old containers, preprocesses every dataset, starts the application, and verifies `/api/health`.
+
+If application files were copied to the server manually and no Git pull is wanted:
+
+```bash
+./deploy/redeploy.sh --no-pull
+```
+
+On preprocessing failure, the script preserves the failed output, restores the previous processed-data backup when available, and attempts to restart the prior application.
 
 Check status:
 

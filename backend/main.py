@@ -22,6 +22,7 @@ except ModuleNotFoundError:
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data" / "processed"
 H5AD_PATH = Path(os.getenv("H5AD_PATH", ROOT / "annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad"))
+EXPRESSION_CACHE_NAME = "expression.h5ad"
 
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
 allow_all_origins = cors_origins == ["*"]
@@ -89,6 +90,18 @@ def _adata(dataset: str | None = None) -> ad.AnnData:
     return ad.read_h5ad(h5ad_path, backed="r")
 
 
+@lru_cache(maxsize=None)
+def _expression_adata(dataset: str | None = None) -> ad.AnnData:
+    selected = dataset_for(dataset)
+    cache_path = _dataset_dir(selected["id"]) / EXPRESSION_CACHE_NAME
+    if cache_path.exists():
+        cache = ad.read_h5ad(cache_path, backed="r")
+        if cache.n_obs == len(_cells(selected["id"])):
+            return cache
+        cache.file.close()
+    return _adata(selected["id"])
+
+
 def _datasets_summary() -> list[dict[str, Any]]:
     summaries: list[dict[str, Any]] = []
     for dataset in DATASETS:
@@ -114,15 +127,22 @@ def _expression_var_names(adata: ad.AnnData) -> pd.Index:
 
 
 def _expression_values(adata: ad.AnnData, cell_indices: np.ndarray, gene_idx: int) -> np.ndarray:
-    if adata.raw is not None:
+    if getattr(adata.X, "format", None) == "csc":
+        full_column = _dense_vector(adata.X[:, gene_idx])
+        values = full_column[cell_indices]
+    elif adata.raw is not None:
         values = _dense_vector(adata.raw.X[cell_indices, gene_idx])
-        values = np.clip(values, 0, None)
     else:
         values = _dense_vector(adata[cell_indices, gene_idx].X)
+    if _expression_source_name(adata) == "raw":
+        values = np.clip(values, 0, None)
     return np.nan_to_num(values, nan=0.0, posinf=0.0, neginf=0.0).astype(float)
 
 
 def _expression_source_name(adata: ad.AnnData) -> str:
+    cached_source = adata.uns.get("expression_source")
+    if cached_source:
+        return str(cached_source)
     return "raw" if adata.raw is not None else "X"
 
 
@@ -244,7 +264,7 @@ def expression(
     sample_column: str = "sample",
     cluster_column: str = "leiden",
 ) -> dict[str, Any]:
-    adata = _adata(dataset)
+    adata = _expression_adata(dataset)
     var_names = _expression_var_names(adata)
     matches = np.where(var_names.str.lower() == gene.lower())[0]
     if len(matches) == 0:
@@ -277,7 +297,7 @@ def dotplot(
     sample_column: str = "sample",
     cluster_column: str = "leiden",
 ) -> dict[str, Any]:
-    adata = _adata(dataset)
+    adata = _expression_adata(dataset)
     var_names = _expression_var_names(adata)
     matches = np.where(var_names.str.lower() == gene.lower())[0]
     if len(matches) == 0:
@@ -334,7 +354,7 @@ def expression_matrix(
     if not requested:
         raise HTTPException(status_code=400, detail="At least one gene is required.")
 
-    adata = _adata(dataset)
+    adata = _expression_adata(dataset)
     var_names = _expression_var_names(adata)
     lower_lookup = {name.lower(): i for i, name in enumerate(var_names)}
     gene_indices: list[tuple[str, int]] = []
@@ -405,7 +425,7 @@ def violin_expression(
     if not requested:
         raise HTTPException(status_code=400, detail="At least one gene is required.")
 
-    adata = _adata(dataset)
+    adata = _expression_adata(dataset)
     var_names = _expression_var_names(adata)
     lower_lookup = {name.lower(): i for i, name in enumerate(var_names)}
     gene_indices: list[tuple[str, int]] = []
