@@ -547,18 +547,27 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
 
     if (geneResult) {
       const expressionCeiling = percentile(geneResult.values, colorCeilingPercentile, geneResult.max || 1);
+      // Plotly renders later markers on top, so stronger expression must come last.
+      const renderOrder = cells
+        .map((_, index) => index)
+        .sort((left, right) => {
+          const leftExpression = Number(geneResult.values[left]) || 0;
+          const rightExpression = Number(geneResult.values[right]) || 0;
+          return leftExpression - rightExpression || left - right;
+        });
+      const orderedExpression = renderOrder.map((index) => Number(geneResult.values[index]) || 0);
       const traces = [
         {
           type: "scattergl",
           name: geneResult.gene,
           showlegend: false,
           mode: "markers",
-          x,
-          y,
-          text,
+          x: renderOrder.map((index) => x[index]),
+          y: renderOrder.map((index) => y[index]),
+          text: renderOrder.map((index) => text[index]),
           hoverinfo: "text",
           marker: {
-            color: geneResult.values,
+            color: orderedExpression,
             colorscale: EXPRESSION_COLORSCALE,
             showscale: true,
             colorbar: {
