@@ -161,7 +161,7 @@ def page_one(c: canvas.Canvas) -> None:
 
     box(c, 438, 428, 294, 74, "Frontend container - Nginx", "Published web port. Serves React/CSS/JS and proxies same-origin /api requests.", BLUE)
     box(c, 438, 304, 294, 90, "Backend container - FastAPI / Uvicorn", "Private Docker port 8000; GET endpoints only; non-root app user; validates filters and computes expression results.", TEAL)
-    box(c, 438, 157, 294, 108, "Host-mounted scientific data", "Processed: study.json, genes.json, cells.parquet\nSource: 4 H5AD files\nRuntime mounts are read-only with SELinux :Z labels.", GREEN)
+    box(c, 438, 157, 294, 108, "Host-mounted scientific data", "Processed: study.json, genes.json, cells.parquet, CSC expression.h5ad\nSource: 5 H5AD files\nRuntime mounts are read-only with SELinux :Z labels.", GREEN)
     box(c, 438, 82, 294, 46, "On-demand preprocess container", "Tools profile only; reads H5AD and writes derived processed files.", ORANGE, body_size=7.6)
 
     box(c, 28, 80, 145, 68, "Authorized operator", "SSH / server administration; dataset publishing and container maintenance", GRAY)
@@ -194,7 +194,7 @@ def page_one(c: canvas.Canvas) -> None:
 
     c.setFillColor(MUTED)
     c.setFont("Helvetica-Oblique", 7.5)
-    c.drawString(28, 40, "Data classification assumption: zebrafish scientific data only; no PHI, PII, credentials, or human-subject data. Data owner to confirm.")
+    c.drawString(28, 40, "Data classification assumption: non-human zebrafish and mouse retinal data; no PHI, PII, credentials, or human-subject data. Data owner to confirm.")
     c.showPage()
 
 
@@ -232,7 +232,7 @@ def page_two(c: canvas.Canvas) -> None:
         (30, "1", "Load application", "Browser requests the public HTTPS URL; Nginx returns static React assets.", BLUE),
         (176, "2", "Request data", "Browser sends same-origin GET requests under /api.", BLUE),
         (322, "3", "Proxy internally", "Nginx forwards /api to backend:8000 over Docker DNS.", PURPLE),
-        (468, "4", "Read data", "FastAPI reads cached JSON/Parquet and requested H5AD gene slices.", TEAL),
+        (468, "4", "Read data", "FastAPI reads cached JSON/Parquet and fast CSC gene columns.", TEAL),
         (614, "5", "Render result", "JSON returns to Plotly; figures and PNG exports are generated client-side.", GREEN),
     ]
     for x, number, title, body, fill in public_cards:
@@ -296,7 +296,7 @@ def build() -> None:
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     c = canvas.Canvas(str(OUTPUT), pagesize=(PAGE_W, PAGE_H), pageCompression=1)
     c.setTitle("Single-Cell Study Portal - Architecture and Data Flow")
-    c.setAuthor("Zebrafish Single-Cell Portal project team")
+    c.setAuthor("Retinal Single-Cell Portal project team")
     c.setSubject("Architecture and data flow for U-M public hosting review")
     page_one(c)
     page_two(c)

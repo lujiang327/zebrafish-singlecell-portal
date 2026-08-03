@@ -109,10 +109,14 @@ git clone YOUR_REPO_URL /opt/zebrafish-singlecell-portal
 cd /opt/zebrafish-singlecell-portal
 ```
 
-Copy the `.h5ad` file onto the server. The default expected path is:
+Copy all source `.h5ad` files into the project root on the server. The default filenames are:
 
 ```text
-/opt/zebrafish-singlecell-portal/annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad
+annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad
+AC_subtypes_reproduced.h5ad
+bc_9_sample_guca1b_gt2_mikiko_no_contam_26_28.h5ad
+corrected_RGC_annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad
+neurog2_web_visualization.h5ad
 ```
 
 Create the environment file:
@@ -141,7 +145,7 @@ docker compose build
 
 ## Preprocess the Dataset
 
-Run this once after copying or replacing the `.h5ad` file:
+Run this once after copying or replacing any source `.h5ad` file:
 
 ```bash
 mkdir -p data/processed
@@ -150,13 +154,7 @@ docker compose --profile tools run --rm preprocess
 
 The first run builds a CSC expression cache for each dataset. This is intentionally memory- and disk-intensive, but it makes individual gene-expression API requests much faster. Later runs reuse caches whose source file size and modification time are unchanged.
 
-This writes:
-
-```text
-data/processed/study.json
-data/processed/cells.parquet
-data/processed/genes.json
-```
+This writes a root study index plus per-dataset `study.json`, `cells.parquet`, `genes.json`, and `expression.h5ad` files under `data/processed/<dataset-id>/`.
 
 The preprocessing container runs as root so it can write to a fresh bind-mounted `data/processed` directory on RHEL. The backend serves these files read-only.
 
@@ -168,7 +166,7 @@ docker compose up -d
 
 ## Repeatable Redeployment
 
-After the application is installed and all four H5AD files are present, run the checked-in deployment script from the project root:
+After the application is installed and all five H5AD files are present, run the checked-in deployment script from the project root:
 
 ```bash
 chmod +x deploy/redeploy.sh

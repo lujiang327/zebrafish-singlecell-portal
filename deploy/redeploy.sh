@@ -74,6 +74,7 @@ required_h5ad_files=(
   "AC_subtypes_reproduced.h5ad"
   "bc_9_sample_guca1b_gt2_mikiko_no_contam_26_28.h5ad"
   "corrected_RGC_annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad"
+  "neurog2_web_visualization.h5ad"
 )
 
 missing_files=0

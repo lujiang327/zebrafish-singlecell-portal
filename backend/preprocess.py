@@ -182,7 +182,7 @@ def preprocess(
     study = {
         "id": public["id"] if public else "custom",
         "label": public["label"] if public else h5ad_path.stem,
-        "title": "Zebrafish Single-Cell Portal",
+        "title": public.get("study_title", "Single Cell Portal") if public else "Single Cell Portal",
         "description": public["description"] if public else "Interactive viewer for the annotated zebrafish single-cell dataset.",
         "source_file": h5ad_path.name,
         "n_cells": int(adata.n_obs),
@@ -222,6 +222,7 @@ def preprocess_all(out_dir: Path, expression_cache: bool = False, force_expressi
         dataset_summaries.append(
             {
                 "id": summary["id"],
+                "study_id": public_dataset(dataset).get("study_id"),
                 "label": summary["label"],
                 "description": summary["description"],
                 "source_file": summary["source_file"],
@@ -233,8 +234,8 @@ def preprocess_all(out_dir: Path, expression_cache: bool = False, force_expressi
         )
 
     index = {
-        "title": "Zebrafish Single-Cell Portal",
-        "description": "Interactive viewer for zebrafish full cell types and subtype-focused datasets.",
+        "title": "Single Cell Portal",
+        "description": "Interactive viewer for retinal single-cell studies and focused datasets.",
         "default_dataset": DEFAULT_DATASET_ID,
         "datasets": dataset_summaries,
     }

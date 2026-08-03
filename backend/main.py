@@ -56,6 +56,8 @@ def _study(dataset: str | None = None) -> dict[str, Any]:
     selected = dataset_for(dataset)
     _require_processed(selected["id"])
     payload = json.loads((_dataset_dir(selected["id"]) / "study.json").read_text(encoding="utf-8"))
+    payload["study_id"] = selected.get("study_id", "zebrafish-singlecell")
+    payload["title"] = selected.get("study_title", payload.get("title", "Single Cell Portal"))
     payload["default_color"] = selected.get("default_color")
     payload["default_cluster"] = selected.get("default_cluster")
     payload["expression_label"] = selected.get("expression_label")

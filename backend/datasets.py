@@ -46,6 +46,18 @@ DATASETS: list[dict[str, Any]] = [
         "expression_label": "Log1p-normalized expression",
         "expression_description": "Library-size normalized to a target sum of approximately 5,704 per cell, then transformed with natural log1p.",
     },
+    {
+        "id": "neurog2-reprogramming",
+        "study_id": "neurog2-retinal-reprogramming",
+        "study_title": "Neurog2-9SA Retinal Neuron Reprogramming",
+        "label": "Neurog2-9SA Reprogramming",
+        "description": "Single-cell analysis of AAV Neurog2-9SA-mediated reprogramming of Müller glia into retinal neurons.",
+        "h5ad": ROOT / "neurog2_web_visualization.h5ad",
+        "default_color": "sample",
+        "default_cluster": "celltype",
+        "expression_label": "Log1p-normalized expression",
+        "expression_description": "Library-size normalized to a target sum of 10,000 per cell, then transformed with natural log1p.",
+    },
 ]
 
 DEFAULT_DATASET_ID = DATASETS[0]["id"]
@@ -59,6 +71,8 @@ def dataset_for(dataset_id: str | None) -> dict[str, Any]:
 def public_dataset(dataset: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": dataset["id"],
+        "study_id": dataset.get("study_id", "zebrafish-singlecell"),
+        "study_title": dataset.get("study_title", "Zebrafish Single-Cell Portal"),
         "label": dataset["label"],
         "description": dataset["description"],
         "source_file": Path(dataset["h5ad"]).name,

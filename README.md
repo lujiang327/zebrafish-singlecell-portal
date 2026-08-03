@@ -1,6 +1,6 @@
-# Zebrafish Single-Cell Portal
+# Retinal Single-Cell Portal
 
-A lightweight web portal for interactively exploring zebrafish full cell type and subtype `.h5ad` datasets in this repository.
+A multi-study web portal for interactively exploring zebrafish and mouse retinal single-cell `.h5ad` datasets.
 
 The scaffold has two parts:
 
@@ -16,6 +16,7 @@ annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad
 AC_subtypes_reproduced.h5ad
 bc_9_sample_guca1b_gt2_mikiko_no_contam_26_28.h5ad
 corrected_RGC_annotated_clustered_corrected_doubletRemoved_Zebrafishes.h5ad
+neurog2_web_visualization.h5ad
 ```
 
 Large `.h5ad` files are ignored by git in this scaffold.
@@ -64,6 +65,7 @@ data/processed/full-cell-types/{study.json,cells.parquet,genes.json,expression.h
 data/processed/ac-subtypes/{study.json,cells.parquet,genes.json,expression.h5ad}
 data/processed/bc-subtypes/{study.json,cells.parquet,genes.json,expression.h5ad}
 data/processed/rgc-subtypes/{study.json,cells.parquet,genes.json,expression.h5ad}
+data/processed/neurog2-reprogramming/{study.json,cells.parquet,genes.json,expression.h5ad}
 ```
 
 Each `expression.h5ad` stores the plot expression matrix in CSC format so the API can read one gene across all cells efficiently. Building these files can require several gigabytes of temporary memory and disk. Existing caches are reused when the source file size and modification time are unchanged; add `--force-expression-cache` to rebuild them.

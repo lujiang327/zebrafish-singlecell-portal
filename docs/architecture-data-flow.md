@@ -6,7 +6,7 @@ Prepared for U-M public hosting review. Current application host: `kec-ap-ps1a.m
 
 - Solid application components below are implemented in this repository.
 - The U-M public DNS, HTTPS, and ingress component is proposed and must be confirmed with the U-M hosting/security team.
-- The application is intended for anonymous public, read-only exploration of zebrafish single-cell data.
+- The application is intended for anonymous public, read-only exploration of zebrafish and mouse retinal single-cell data.
 - No upload, account, authentication, H5AD download, or write API is exposed.
 
 ## Production architecture
@@ -23,12 +23,12 @@ flowchart LR
             N -->|/api over private Docker DNS| A
         end
 
-        P[Host processed data<br/>study.json, genes.json,<br/>cells.parquet<br/>Runtime mount: read-only]
-        R[Host source data<br/>4 H5AD files<br/>Runtime mounts: read-only]
+        P[Host processed data<br/>study.json, genes.json,<br/>cells.parquet, expression.h5ad CSC<br/>Runtime mount: read-only]
+        R[Host source data<br/>5 H5AD files<br/>Runtime mounts: read-only]
         T[On-demand preprocess container<br/>tools profile; not public]
 
-        A -->|Metadata, coordinates, annotations| P
-        A -->|Backed gene slices from raw.X| R
+        A -->|Metadata, coordinates, annotations, CSC gene columns| P
+        A -->|Fallback backed gene slices when cache is absent| R
         T -->|Writes derived files| P
         T -->|Reads| R
     end
@@ -48,7 +48,7 @@ sequenceDiagram
     participant E as U-M HTTPS ingress (proposed)
     participant N as Nginx frontend
     participant A as FastAPI backend
-    participant P as Processed JSON/Parquet
+    participant P as Processed JSON, Parquet, and CSC cache
     participant H as Read-only H5AD
 
     B->>E: HTTPS GET /
@@ -57,9 +57,9 @@ sequenceDiagram
     B->>E: GET /api/study, /cells, /genes, /expression, /matrix, or /violin
     E->>N: Same-origin /api request
     N->>A: Proxy over private Docker network
-    A->>P: Read cached metadata, coordinates, annotations, and gene index
-    opt Gene expression request
-        A->>H: Read only requested gene slices in backed mode
+    A->>P: Read cached metadata, coordinates, annotations, gene index, and CSC expression
+    opt Expression cache absent
+        A->>H: Fall back to a requested gene slice in backed mode
     end
     A-->>B: JSON result through Nginx and ingress
     Note over B: Plotly renders UMAP, dot plot, heat map, or violin plot
@@ -70,7 +70,7 @@ sequenceDiagram
 
 1. An authorized operator transfers an approved H5AD file to protected host storage.
 2. The operator runs `docker compose --profile tools run --rm preprocess`.
-3. The transient preprocess container reads H5AD files and writes derived `study.json`, `genes.json`, and `cells.parquet` files.
+3. The transient preprocess container reads H5AD files and writes derived `study.json`, `genes.json`, `cells.parquet`, and CSC `expression.h5ad` files.
 4. Runtime frontend/backend containers are restarted or redeployed.
 5. Runtime containers mount both source and processed datasets read-only.
 
@@ -85,7 +85,7 @@ sequenceDiagram
 | Browser data | Scientific cell identifiers, embeddings, annotations, and expression results are returned as JSON. |
 | Figure downloads | Generated client-side from rendered Plotly figures. |
 | Health monitoring | Backend `/api/health` health check every 30 seconds through Docker Compose. |
-| Source-data assumption | Zebrafish research data; no PHI, PII, credentials, or human-subject data expected. Data owner should confirm. |
+| Source-data assumption | Non-human retinal research data (zebrafish and mouse); no PHI, PII, credentials, or human-subject data expected. Data owner should confirm. |
 
 ## Items to confirm with U-M hosting/security
 

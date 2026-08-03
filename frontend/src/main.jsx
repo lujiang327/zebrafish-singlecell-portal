@@ -12,10 +12,23 @@ const STUDIES = [
     id: "zebrafish-singlecell",
     title: "Zebrafish Single-Cell Portal",
     species: "Zebrafish",
-    tissue: "Single-cell RNA-seq",
+    tissue: "Retina",
     status: "Ready",
+    defaultDatasetId: "full-cell-types",
+    datasetIds: ["full-cell-types", "ac-subtypes", "bc-subtypes", "rgc-subtypes"],
     description:
-      "Interactive UMAP, annotation filters, gene expression, dot plots, and heat maps for the processed zebrafish single-cell study.",
+      "Interactive exploration of zebrafish retinal cell types and amacrine, bipolar, and retinal ganglion cell subtypes.",
+  },
+  {
+    id: "neurog2-retinal-reprogramming",
+    title: "Neurog2-9SA Retinal Neuron Reprogramming",
+    species: "Mouse",
+    tissue: "Retina",
+    status: "Ready",
+    defaultDatasetId: "neurog2-reprogramming",
+    datasetIds: ["neurog2-reprogramming"],
+    description:
+      "Single-cell analysis of AAV Neurog2-9SA-mediated reprogramming of Müller glia into retinal neurons.",
   },
 ];
 
@@ -40,6 +53,8 @@ async function getJson(path) {
 const HIDDEN_COLOR_COLUMNS = new Set(["sample"]);
 const HIDDEN_CLUSTER_COLUMNS = new Set(["sample", "renamed_samples"]);
 const COLUMN_LABELS = {
+  sample: "samples",
+  celltype: "cell type",
   renamed_samples: "samples",
   leiden: "cell clusters",
   combined_leiden: "cell clusters",
@@ -53,6 +68,10 @@ const DATASET_COLUMN_OPTIONS = {
   "bc-subtypes": {
     color: new Set(["renamed_samples", "leiden_no_contam_26_28"]),
     cluster: new Set(["renamed_samples", "leiden_no_contam_26_28"]),
+  },
+  "neurog2-reprogramming": {
+    color: new Set(["sample", "celltype", "leiden"]),
+    cluster: new Set(["celltype", "leiden"]),
   },
 };
 const FULL_CELL_TYPE_ORDER = [
@@ -72,6 +91,11 @@ const FULL_CELL_TYPE_ORDER = [
   "Endothelial",
   "Perycites",
 ];
+const NEUROG2_SAMPLE_LABELS = new Map([
+  ["Neurog2_9SA_5weeks", "Neurog2-9SA, 5 weeks"],
+  ["Neurog2_9SA_2mo", "Neurog2-9SA, 2 months"],
+  ["control_2mo", "Control, 2 months"],
+]);
 const FULL_CELL_TYPE_LABELS = new Map([
   ["MG", "MG"],
   ["MGPC", "Rod precursor"],
@@ -116,6 +140,9 @@ function displayValue(value) {
 function displayGroupValue(value, datasetId, columnName) {
   if (datasetId === "full-cell-types" && columnName === "celltype") {
     return FULL_CELL_TYPE_LABELS.get(String(value)) ?? String(value);
+  }
+  if (datasetId === "neurog2-reprogramming" && columnName === "sample") {
+    return NEUROG2_SAMPLE_LABELS.get(String(value)) ?? String(value);
   }
   return String(value || "Unannotated");
 }
@@ -271,13 +298,18 @@ function dotPlotHeight(groupCount) {
 
 const DOT_PLOT_GENE_SPACING = 64;
 
+function datasetsForStudy(datasets, studyConfig) {
+  const allowed = new Set(studyConfig.datasetIds ?? []);
+  return allowed.size ? datasets.filter((dataset) => allowed.has(dataset.id)) : datasets;
+}
+
 function StudyExplorer({ studyConfig = STUDIES[0] }) {
   const plotRef = useRef(null);
   const dotplotRef = useRef(null);
   const violinRef = useRef(null);
   const heatmapRef = useRef(null);
   const [study, setStudy] = useState(null);
-  const [datasetId, setDatasetId] = useState(DEFAULT_DATASET_ID);
+  const [datasetId, setDatasetId] = useState(studyConfig.defaultDatasetId ?? DEFAULT_DATASET_ID);
   const [datasetOptions, setDatasetOptions] = useState([]);
   const [cells, setCells] = useState([]);
   const [clusterLabels, setClusterLabels] = useState([]);
@@ -304,7 +336,11 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
     async function boot() {
       try {
         const query = new URLSearchParams(window.location.search);
-        const urlDataset = query.get("dataset") || DEFAULT_DATASET_ID;
+        const requestedDataset = query.get("dataset");
+        const allowedDatasets = new Set(studyConfig.datasetIds ?? []);
+        const urlDataset = requestedDataset && (!allowedDatasets.size || allowedDatasets.has(requestedDataset))
+          ? requestedDataset
+          : studyConfig.defaultDatasetId ?? DEFAULT_DATASET_ID;
         const studyPayload = await getJson(`/api/study?dataset=${encodeURIComponent(urlDataset)}`);
         const resolvedDatasetId = studyPayload.id ?? urlDataset;
         const columns = studyPayload.metadata_columns ?? [];
@@ -325,7 +361,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
 
         setStudy(studyPayload);
         setDatasetId(resolvedDatasetId);
-        setDatasetOptions(studyPayload.datasets ?? []);
+        setDatasetOptions(datasetsForStudy(studyPayload.datasets ?? [], studyConfig));
         const selectedAnnotation = urlAnnotation && colorColumnNames.includes(urlAnnotation) ? urlAnnotation : preferredColor;
         setColorBy(selectedAnnotation);
         setClusterColumn(urlClusterColumn && clusterColumnNames.includes(urlClusterColumn) ? urlClusterColumn : preferredCluster);
@@ -348,7 +384,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
       }
     }
     boot();
-  }, []);
+  }, [studyConfig]);
 
   useEffect(() => {
     if (!colorBy && !study) return;
@@ -985,7 +1021,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
 
       setStudy(studyPayload);
       setDatasetId(resolvedDatasetId);
-      setDatasetOptions(studyPayload.datasets ?? []);
+      setDatasetOptions(datasetsForStudy(studyPayload.datasets ?? [], studyConfig));
       setColorBy(nextColor);
       setClusterColumn(nextCluster);
       setSelectedAnnotationValues([]);
@@ -1436,8 +1472,8 @@ function StudyListPage({ studies = STUDIES }) {
 
       <section className="study-browser" aria-label="Available studies">
         <div className="study-browser-heading">
-          <span>{studies.length.toLocaleString()} study</span>
-          <strong>Available datasets</strong>
+          <span>{studies.length.toLocaleString()} {studies.length === 1 ? "study" : "studies"}</span>
+          <strong>Available studies</strong>
         </div>
         <div className="study-list">
           {studies.map((studyItem) => (
