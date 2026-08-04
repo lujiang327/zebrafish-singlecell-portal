@@ -91,6 +91,7 @@ const FULL_CELL_TYPE_ORDER = [
   "Endothelial",
   "Perycites",
 ];
+const NEUROG2_CELL_TYPE_ORDER = ["MG", "MGPC", "AC", "BC", "Rod", "Cones"];
 const NEUROG2_SAMPLE_LABELS = new Map([
   ["Neurog2_9SA_5weeks", "Neurog2-9SA, 5 weeks"],
   ["Neurog2_9SA_2mo", "Neurog2-9SA, 2 months"],
@@ -112,6 +113,14 @@ const FULL_CELL_TYPE_LABELS = new Map([
   ["Oligodenrocyte", "Oligodendrocyte"],
   ["Endothelial", "Endothelial"],
   ["Perycites", "Pericytes"],
+]);
+const NEUROG2_CELL_TYPE_LABELS = new Map([
+  ["MG", "MG"],
+  ["MGPC", "MGPC"],
+  ["AC", "AC"],
+  ["BC", "BC"],
+  ["Rod", "Rod"],
+  ["Cones", "Cone"],
 ]);
 const EXPRESSION_COLORSCALE = [
   [0, "#d1d5db"],
@@ -144,12 +153,21 @@ function displayGroupValue(value, datasetId, columnName) {
   if (datasetId === "neurog2-reprogramming" && columnName === "sample") {
     return NEUROG2_SAMPLE_LABELS.get(String(value)) ?? String(value);
   }
+  if (datasetId === "neurog2-reprogramming" && columnName === "celltype") {
+    return NEUROG2_CELL_TYPE_LABELS.get(String(value)) ?? String(value);
+  }
   return String(value || "Unannotated");
 }
 
 function orderedGroups(groups, datasetId, columnName) {
-  if (datasetId !== "full-cell-types" || columnName !== "celltype") return groups;
-  const order = new Map(FULL_CELL_TYPE_ORDER.map((value, index) => [value, index]));
+  if (columnName !== "celltype") return groups;
+  const requestedOrder = datasetId === "full-cell-types"
+    ? FULL_CELL_TYPE_ORDER
+    : datasetId === "neurog2-reprogramming"
+      ? NEUROG2_CELL_TYPE_ORDER
+      : null;
+  if (!requestedOrder) return groups;
+  const order = new Map(requestedOrder.map((value, index) => [value, index]));
   return [...groups].sort((left, right) => (order.get(left) ?? Number.MAX_SAFE_INTEGER) - (order.get(right) ?? Number.MAX_SAFE_INTEGER));
 }
 
@@ -813,6 +831,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
         yaxis: {
           title: "",
           type: "category",
+          categoryorder: "array",
           categoryarray: groups,
           autorange: "reversed",
           automargin: true,
@@ -896,6 +915,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
         xaxis: {
           title: "",
           type: "category",
+          categoryorder: "array",
           categoryarray: groups,
           automargin: true,
           tickmode: "array",
@@ -979,6 +999,7 @@ function StudyExplorer({ studyConfig = STUDIES[0] }) {
         yaxis: {
           title: "",
           type: "category",
+          categoryorder: "array",
           categoryarray: groups,
           autorange: "reversed",
           automargin: true,
